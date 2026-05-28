@@ -37,9 +37,22 @@
   background: var(--primary-soft);
 }
 
+/* Print content is rendered via portal directly in <body> and hidden by default */
+#print-content { display: none; }
+
 @media print {
-  body * { visibility: hidden; }
-  #print-content,
-  #print-content * { visibility: visible; }
-  #print-content { position: absolute; inset: 0; }
+  /* Hide everything in body */
+  body > * { display: none !important; }
+  /* Show only the print portal (higher specificity wins) */
+  #print-content {
+    display: block !important;
+    position: fixed;
+    inset: 0;
+    padding: 2rem;
+    background: white;
+    color: black;
+    font-family: system-ui, sans-serif;
+    font-size: 13px;
+    line-height: 1.5;
+  }
 }

@@ -1,8 +1,7 @@
 // frontend/src/pages/Home.tsx
-// SplitHaus landing page — cream + electric-indigo theme.
-// Matches the design from Splithaus.zip (index.html).
-
 import { useState, useEffect, useCallback, type FC, type ReactNode, type CSSProperties } from 'react';
+import SharedLogoMark from '../components/layout/LogoMark';
+import AppFooter from '../components/layout/AppFooter';
 
 /* ─── Focus ring ────────────────────────────────────────────────── */
 const FOCUS =
@@ -66,25 +65,9 @@ const ChevronDown: FC = () => (
     <path d="M6 9l6 6 6-6" />
   </svg>
 );
-const GitHubIcon: FC = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-    <path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3" />
-  </svg>
-);
 
-/* ─── Logo mark — two skewed bars ───────────────────────────────── */
-const LogoMark: FC = () => (
-  <span className="relative inline-block h-[22px] w-[22px] shrink-0" aria-hidden="true">
-    <span
-      className="absolute left-0 top-0.5 h-[18px] w-[9px] rounded-xs"
-      style={{ background: 'var(--primary)', transform: 'skewX(-12deg)' }}
-    />
-    <span
-      className="absolute right-0 top-0.5 h-[18px] w-[9px] rounded-xs bg-accent"
-      style={{ transform: 'skewX(-12deg)' }}
-    />
-  </span>
-);
+/* ─── Logo mark ─────────────────────────────────────────────────── */
+const LogoMark: FC = () => <SharedLogoMark />;
 
 /* ─── Navbar ────────────────────────────────────────────────────── */
 interface NavProps {
@@ -623,36 +606,7 @@ const CTABanner: FC = () => (
   </section>
 );
 
-/* ─── Footer ────────────────────────────────────────────────────── */
-interface FooterLinkProps { href: string; children: ReactNode }
-const FooterLink: FC<FooterLinkProps> = ({ href, children }) => (
-  <a href={href} className={'inline-flex min-h-[44px] items-center text-ink-2 transition-colors hover:text-ink ' + FOCUS}>
-    {children}
-  </a>
-);
 
-const Footer: FC = () => (
-  <footer role="contentinfo" className="border-t border-rule py-10 text-[13px] text-ink-2">
-    <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-8">
-      <div className="flex items-center gap-3">
-        <a href="/" aria-label="SplitHaus home" className={'flex items-center gap-2 font-display text-[17px] font-semibold tracking-tight text-ink ' + FOCUS}>
-          <LogoMark />
-          SplitHaus
-        </a>
-        <span className="text-ink-3" aria-hidden="true">·</span>
-        <span>The smartest way to split share house expenses.</span>
-      </div>
-      <nav className="flex items-center gap-6" aria-label="Footer">
-        <FooterLink href="#">Built by <span className="text-ink font-medium">Albin Shaji</span></FooterLink>
-        <FooterLink href="https://github.com/asha0321/splithaus">
-          <GitHubIcon />
-          <span className="ml-1.5">GitHub</span>
-        </FooterLink>
-        <FooterLink href="/how-it-works">Privacy</FooterLink>
-      </nav>
-    </div>
-  </footer>
-);
 
 /* ─── Skip link ─────────────────────────────────────────────────── */
 const SkipLink: FC = () => (
@@ -699,7 +653,7 @@ export default function Home(): JSX.Element {
         <Features />
         <CTABanner />
       </main>
-      <Footer />
+      <AppFooter />
     </div>
   );
 }
