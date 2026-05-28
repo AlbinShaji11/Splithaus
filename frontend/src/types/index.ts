@@ -1,67 +1,44 @@
-export type SplitCode = 'ALL' | 'CUSTOM' | string
+export type SplitMode = 'everyone' | 'individual' | 'subset' | 'proportion'
 
 export interface Person {
   id: string
   name: string
   color: string
+  initial: string
+}
+
+export interface ProportionShare {
+  personId: string
+  ratio: number
+}
+
+export interface ItemSplit {
+  itemIndex: number
+  mode: SplitMode
+  assignedTo: string[]
+  proportions?: ProportionShare[]
 }
 
 export interface ReceiptItem {
-  id: string
   name: string
-  quantity: number
-  unitPrice: number
-  totalPrice: number
-  category: string
-  confidence: number
-  splitCode: SplitCode
-  assignedTo: string[]
-  customAmounts?: Record<string, number>
+  price: number
+  type: 'item' | 'discount'
 }
 
-export interface Receipt {
-  id: string
-  storeName: string
-  receiptDate: string | null
+export interface ScannedReceipt {
+  store: string
   items: ReceiptItem[]
   subtotal: number
   gst: number
   total: number
-  paidBy: string | null
-  scannedAt: string
-}
-
-export interface Balance {
-  personId: string
-  name: string
-  color: string
-  totalOwes: number
-  totalOwed: number
-  net: number
+  line_count: number
+  warnings: string[]
 }
 
 export interface Settlement {
-  from: string
+  fromId: string
   fromName: string
-  to: string
+  toId: string
   toName: string
   amount: number
-}
-
-export interface SplitSession {
-  id: string
-  receipt: Receipt
-  people: Person[]
-  balances: Balance[]
-  settlements: Settlement[]
-  createdAt: string
-  isSettled: boolean
-}
-
-export type AppState = {
-  currentReceipt: Receipt | null
-  people: Person[]
-  sessions: SplitSession[]
-  isScanning: boolean
-  scanError: string | null
 }

@@ -10,15 +10,17 @@ app = FastAPI(title="SplitHaus API", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:3000",
+    ],
     allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-app.include_router(ocr.router, prefix="/api")
-
+app.include_router(ocr.router)
 
 @app.get("/health")
 def health_check():

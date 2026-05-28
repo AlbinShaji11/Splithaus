@@ -30,3 +30,10 @@ desktop.ini
 .idea/
 .vscode/
 *.swp
+
+# ── Dev artefacts ─────────────────────────────────────────────────────────────
+*.log
+frontend/screenshot-*.png
+backend/test_hires.png
+backend/test_receipt.pdf
+backend/test_receipt_parsed.json

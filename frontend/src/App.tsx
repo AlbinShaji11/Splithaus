@@ -1,7 +1,14 @@
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import Home from './pages/Home'
+import SplitTool from './pages/SplitTool'
+
 export default function App() {
   return (
-    <div className="min-h-screen bg-gray-50">
-      <h1 className="text-3xl font-bold text-center py-8">SplitHaus</h1>
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/split" element={<SplitTool />} />
+      </Routes>
+    </BrowserRouter>
   )
 }
