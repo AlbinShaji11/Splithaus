@@ -19,7 +19,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(ocr.router, prefix="/api")
+app.include_router(ocr.router)
 
 @app.get("/health")
 def health_check():

@@ -2,7 +2,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from app.models.schemas import ReceiptScanResponse
 from app.services import parser
 
-router = APIRouter(tags=["ocr"])
+router = APIRouter(prefix="/api", tags=["ocr"])
 
 ALLOWED_TYPES = {
     "image/jpeg",

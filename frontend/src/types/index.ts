@@ -6,7 +6,25 @@ export interface Person {
   color: string
 }
 
+// API response types - matches POST /api/scan-receipt
 export interface ReceiptItem {
+  name: string
+  price: number
+  type: 'item' | 'discount'
+}
+
+export interface ScannedReceipt {
+  store: string
+  items: ReceiptItem[]
+  subtotal: number
+  gst: number
+  total: number
+  line_count: number
+  warnings: string[]
+}
+
+// Extended item used in split sessions
+export interface SessionItem {
   id: string
   name: string
   quantity: number
@@ -23,7 +41,7 @@ export interface Receipt {
   id: string
   storeName: string
   receiptDate: string | null
-  items: ReceiptItem[]
+  items: SessionItem[]
   subtotal: number
   gst: number
   total: number
