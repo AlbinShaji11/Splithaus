@@ -1,4 +1,5 @@
 from fastapi import APIRouter, File, HTTPException, UploadFile
+
 from app.models.schemas import ReceiptScanResponse
 from app.services import parser
 

@@ -1,110 +1,71 @@
-import pytest
-
-from app.services.parser import _categorise, _clean_name, _safe_float, parse_textract_response
+from app.services.parser import extract_price, parse_woolworths
 
 
-def test_clean_name_strips_ww_suffix():
-    assert _clean_name("Full Cream Milk WW 2L") == "Full Cream Milk 2L"
+def test_extract_price_basic():
+    assert extract_price("8.69") == 8.69
 
 
-def test_clean_name_title_case():
-    assert _clean_name("FREE RANGE EGGS") == "Free Range Eggs"
+def test_extract_price_with_dollar():
+    assert extract_price("$12.50") == 12.50
 
 
-def test_clean_name_removes_leading_number_code():
-    assert _clean_name("1234 Bread Loaf") == "Bread Loaf"
+def test_extract_price_negative():
+    assert extract_price("-1.00") == -1.00
 
 
-def test_clean_name_collapses_extra_whitespace():
-    assert _clean_name("Chips   BBQ") == "Chips Bbq"
+def test_extract_price_no_match():
+    assert extract_price("abc") is None
 
 
-def test_categorise_alcohol_beer():
-    assert _categorise("Corona Beer 6pk") == "alcohol"
+def test_extract_price_empty():
+    assert extract_price("") is None
 
 
-def test_categorise_alcohol_wine():
-    assert _categorise("Jacob's Creek Wine") == "alcohol"
-
-
-def test_categorise_cleaning():
-    assert _categorise("Spray n Wipe Detergent 500ml") == "cleaning"
-
-
-def test_categorise_personal():
-    assert _categorise("Head Shoulders Shampoo") == "personal"
-
-
-def test_categorise_household_paper():
-    assert _categorise("Toilet Paper 12pk") == "household"
-
-
-def test_categorise_default_groceries():
-    assert _categorise("Free Range Eggs 12pk") == "groceries"
-
-
-def test_safe_float_dollar_sign():
-    assert _safe_float("$12.50") == 12.50
-
-
-def test_safe_float_comma():
-    assert _safe_float("1,234.50") == 1234.50
-
-
-def test_safe_float_empty_string():
-    assert _safe_float("") == 0.0
-
-
-def test_safe_float_none():
-    assert _safe_float(None) == 0.0
-
-
-def test_parse_empty_response():
-    result = parse_textract_response({})
-    assert result.store_name == "Unknown Store"
-    assert result.items == []
-    assert result.total == 0.0
-
-
-def test_parse_vendor_and_single_item():
-    data = {"ExpenseDocuments": [{"SummaryFields": [
-        {"Type": {"Text": "VENDOR_NAME"}, "ValueDetection": {"Text": "Woolworths"}},
-        {"Type": {"Text": "TOTAL"}, "ValueDetection": {"Text": "5.00"}},
-    ], "LineItemGroups": [{"LineItems": [{"LineItemExpenseFields": [
-        {"Type": {"Text": "ITEM"}, "ValueDetection": {"Text": "Milk", "Confidence": 99.0}},
-        {"Type": {"Text": "PRICE"}, "ValueDetection": {"Text": "5.00", "Confidence": 99.0}},
-        {"Type": {"Text": "QUANTITY"}, "ValueDetection": {"Text": "1", "Confidence": 99.0}},
-        {"Type": {"Text": "UNIT_PRICE"}, "ValueDetection": {"Text": "5.00", "Confidence": 99.0}},
-    ]}]}]}]}
-    result = parse_textract_response(data)
-    assert result.store_name == "Woolworths"
-    assert len(result.items) == 1
-    assert result.items[0].name == "Milk"
-    assert result.items[0].confidence == pytest.approx(0.99)
-
-
-def test_parse_total_mismatch_triggers_warning():
-    data = {"ExpenseDocuments": [{"SummaryFields": [
-        {"Type": {"Text": "TOTAL"}, "ValueDetection": {"Text": "50.00"}},
-    ], "LineItemGroups": [{"LineItems": [{"LineItemExpenseFields": [
-        {"Type": {"Text": "ITEM"}, "ValueDetection": {"Text": "Bread", "Confidence": 95.0}},
-        {"Type": {"Text": "PRICE"}, "ValueDetection": {"Text": "5.00", "Confidence": 95.0}},
-        {"Type": {"Text": "QUANTITY"}, "ValueDetection": {"Text": "1", "Confidence": 95.0}},
-        {"Type": {"Text": "UNIT_PRICE"}, "ValueDetection": {"Text": "5.00", "Confidence": 95.0}},
-    ]}]}]}]}
-    result = parse_textract_response(data)
-    assert any("mismatch" in w for w in result.warnings)
-
-
-def test_parse_low_confidence_triggers_warning():
-    fields = [
-        {"Type": {"Text": "ITEM"}, "ValueDetection": {"Text": "Cheese", "Confidence": 50.0}},
-        {"Type": {"Text": "PRICE"}, "ValueDetection": {"Text": "6.00", "Confidence": 50.0}},
-        {"Type": {"Text": "QUANTITY"}, "ValueDetection": {"Text": "1", "Confidence": 50.0}},
-        {"Type": {"Text": "UNIT_PRICE"}, "ValueDetection": {"Text": "6.00", "Confidence": 50.0}},
+def test_parse_woolworths_single_item():
+    lines = [
+        "Description                      $",
+        "Full Cream Milk 2L           4.20",
+        "Subtotal",
     ]
-    data = {"ExpenseDocuments": [{"SummaryFields": [], "LineItemGroups": [
-        {"LineItems": [{"LineItemExpenseFields": fields}]}
-    ]}]}
-    result = parse_textract_response(data)
-    assert any("Low confidence" in w for w in result.warnings)
+    items = parse_woolworths(lines)
+    assert len(items) == 1
+    assert items[0]["name"] == "Full Cream Milk 2L"
+    assert items[0]["price"] == 4.20
+    assert items[0]["type"] == "item"
+
+
+def test_parse_woolworths_discount_line():
+    lines = [
+        "Description                      $",
+        "WW Brand Disc               -1.49",
+        "Subtotal",
+    ]
+    items = parse_woolworths(lines)
+    assert len(items) == 1
+    assert items[0]["price"] == -1.49
+    assert items[0]["type"] == "discount"
+
+
+def test_parse_woolworths_skips_eftpos_lines():
+    lines = [
+        "Description                      $",
+        "Bread                        3.50",
+        "EFTPOS                      30.00",
+        "Subtotal",
+    ]
+    items = parse_woolworths(lines)
+    assert len(items) == 1
+    assert items[0]["name"] == "Bread"
+
+
+def test_parse_woolworths_empty_lines():
+    assert parse_woolworths([]) == []
+
+
+def test_parse_woolworths_no_section_markers():
+    lines = [
+        "Milk                         4.20",
+        "Bread                        3.50",
+    ]
+    items = parse_woolworths(lines)
+    assert isinstance(items, list)

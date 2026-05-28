@@ -1,7 +1,7 @@
-import os
-import sys
 import json
+import os
 import re
+import sys
 from pathlib import Path
 
 
@@ -83,8 +83,8 @@ def parse_woolworths(lines: list) -> dict:
     item_lines = lines[start_idx:stop_idx]
 
     print(f"\n=== ITEM LINES ({len(item_lines)}) ===")
-    for l in item_lines:
-        print(f"  {repr(l)}")
+    for ln in item_lines:
+        print(f"  {repr(ln)}")
 
     # Walk lines and apply cases
     items = []
@@ -260,19 +260,17 @@ def scan_receipt(file_path: str):
             print("Try a JPG/PNG photo instead.")
             return
 
-        lines = [l for l in text.splitlines() if l.strip()]
+        lines = [ln for ln in text.splitlines() if ln.strip()]
 
     elif ext in ['.jpg', '.jpeg', '.png', '.webp']:
         # For images, fall back to PaddleOCR
         print("Image file — using PaddleOCR...")
         from paddleocr import PaddleOCR
-        import cv2
 
         ocr = PaddleOCR(
             use_angle_cls=True, lang='en',
             use_gpu=False, show_log=False
         )
-        img = cv2.imread(file_path)
         result = ocr.ocr(file_path, cls=True)
         if not result or not result[0]:
             print("No text detected.")
