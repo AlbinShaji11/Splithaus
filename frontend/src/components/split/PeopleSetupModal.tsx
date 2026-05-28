@@ -3,25 +3,48 @@ import { nanoid } from 'nanoid'
 import type { Person } from '@/types'
 import { PERSON_COLORS } from '@/constants/colors'
 
-function makePerson(index: number): Person {
-  const color = PERSON_COLORS[index % PERSON_COLORS.length]
-  return { id: nanoid(), name: `Person ${index + 1}`, color, initial: 'P' }
+const DEFAULT_NAMES = ['Albin', 'Sebastian', 'Emmanuel', 'Megha', 'Sidharth']
+
+function getDefaultName(index: number): string {
+  return DEFAULT_NAMES[index] ?? `Person ${index + 1}`
 }
 
 function getInitial(name: string): string {
-  return (name.trim()[0] ?? 'P').toUpperCase()
+  return (name.trim()[0] ?? '?').toUpperCase()
+}
+
+function makePerson(index: number, overrideName?: string): Person {
+  const name = overrideName ?? getDefaultName(index)
+  return { id: nanoid(), name, color: PERSON_COLORS[index % PERSON_COLORS.length], initial: getInitial(name) }
 }
 
 interface Props {
   onConfirm: (people: Person[]) => void
   onClose: () => void
+  savedPeople?: Person[]
 }
 
-export default function PeopleSetupModal({ onConfirm, onClose }: Props) {
-  const [people, setPeople] = useState<Person[]>([makePerson(0), makePerson(1)])
+export default function PeopleSetupModal({ onConfirm, onClose, savedPeople }: Props) {
+  const [people, setPeople] = useState<Person[]>(() => {
+    if (savedPeople && savedPeople.length >= 2) {
+      return savedPeople.map((p, i) => ({
+        ...p,
+        id: nanoid(),
+        color: PERSON_COLORS[i % PERSON_COLORS.length],
+        initial: getInitial(p.name),
+      }))
+    }
+    return Array.from({ length: 4 }, (_, i) => makePerson(i))
+  })
 
   function setCount(n: number) {
-    setPeople(Array.from({ length: n }, (_, i) => makePerson(i)))
+    setPeople(prev =>
+      Array.from({ length: n }, (_, i) =>
+        i < prev.length
+          ? { ...prev[i], color: PERSON_COLORS[i % PERSON_COLORS.length] }
+          : makePerson(i),
+      ),
+    )
   }
 
   function updateName(id: string, name: string) {
@@ -44,27 +67,20 @@ export default function PeopleSetupModal({ onConfirm, onClose }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" onClick={onClose}>
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-      <div
-        className="relative z-10 w-full max-w-md rounded-t-xl bg-card p-6 shadow-lg sm:rounded-xl"
-        onClick={e => e.stopPropagation()}
-      >
-        <h2 className="font-display text-xl font-semibold tracking-heading text-ink">
-          Who's splitting this?
-        </h2>
+      <div className="relative z-10 w-full max-w-md rounded-t-xl bg-card p-6 shadow-lg sm:rounded-xl"
+        onClick={e => e.stopPropagation()}>
+        <h2 className="font-display text-xl font-semibold tracking-heading text-ink">Who's splitting this?</h2>
         <p className="mt-1 text-sm text-ink-2">Quick-add or enter names below.</p>
 
         <div className="mt-4 flex gap-2">
           {[2, 3, 4, 5].map(n => (
-            <button
-              key={n}
-              onClick={() => setCount(n)}
+            <button key={n} onClick={() => setCount(n)}
               className={[
                 'h-9 w-9 rounded-xs text-sm font-semibold transition focus:outline-none',
                 people.length === n
                   ? 'bg-accent text-white'
                   : 'border border-rule-strong text-ink-2 hover:border-accent hover:text-accent',
-              ].join(' ')}
-            >
+              ].join(' ')}>
               {n}
             </button>
           ))}
@@ -73,24 +89,17 @@ export default function PeopleSetupModal({ onConfirm, onClose }: Props) {
         <div className="mt-4 space-y-2">
           {people.map((person, idx) => (
             <div key={person.id} className="flex items-center gap-3">
-              <div
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
-                style={{ background: person.color }}
-              >
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
+                style={{ background: person.color }}>
                 {getInitial(person.name)}
               </div>
-              <input
-                value={person.name}
+              <input value={person.name}
                 onChange={e => updateName(person.id, e.target.value)}
-                placeholder={`Person ${idx + 1}`}
-                className="flex-1 rounded-xs border border-rule bg-transparent px-3 py-2 text-sm text-ink placeholder:text-ink-3 outline-none focus:border-accent"
-              />
+                placeholder={getDefaultName(idx)}
+                className="flex-1 rounded-xs border border-rule bg-transparent px-3 py-2 text-sm text-ink placeholder:text-ink-3 outline-none focus:border-accent" />
               {people.length > 2 && (
-                <button
-                  onClick={() => removePerson(person.id)}
-                  className="shrink-0 text-ink-3 transition hover:text-red-500 focus:outline-none"
-                  aria-label="Remove person"
-                >
+                <button onClick={() => removePerson(person.id)}
+                  className="shrink-0 text-ink-3 transition hover:text-red-500 focus:outline-none" aria-label="Remove person">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M6 6l12 12M18 6L6 18" />
                   </svg>
@@ -101,10 +110,8 @@ export default function PeopleSetupModal({ onConfirm, onClose }: Props) {
         </div>
 
         {people.length < 8 && (
-          <button
-            onClick={addPerson}
-            className="mt-3 flex items-center gap-1.5 text-sm text-ink-2 transition hover:text-accent focus:outline-none"
-          >
+          <button onClick={addPerson}
+            className="mt-3 flex items-center gap-1.5 text-sm text-ink-2 transition hover:text-accent focus:outline-none">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
               <path d="M12 5v14M5 12h14" />
             </svg>
@@ -113,17 +120,12 @@ export default function PeopleSetupModal({ onConfirm, onClose }: Props) {
         )}
 
         <div className="mt-6 flex gap-3">
-          <button
-            onClick={onClose}
-            className="flex-1 rounded-xs border border-rule-strong py-2.5 text-sm font-medium text-ink-2 transition hover:border-ink-2 hover:text-ink focus:outline-none"
-          >
+          <button onClick={onClose}
+            className="flex-1 rounded-xs border border-rule-strong py-2.5 text-sm font-medium text-ink-2 transition hover:border-ink-2 hover:text-ink focus:outline-none">
             Cancel
           </button>
-          <button
-            onClick={() => allFilled && onConfirm(people)}
-            disabled={!allFilled}
-            className="flex-1 rounded-xs bg-accent py-2.5 text-sm font-semibold text-white transition hover:bg-accent-dark focus:outline-none disabled:opacity-40"
-          >
+          <button onClick={() => allFilled && onConfirm(people)} disabled={!allFilled}
+            className="flex-1 rounded-xs bg-accent py-2.5 text-sm font-semibold text-white transition hover:bg-accent-dark focus:outline-none disabled:opacity-40">
             Start assigning →
           </button>
         </div>

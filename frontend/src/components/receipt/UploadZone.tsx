@@ -215,7 +215,7 @@ export default function UploadZone({ onSuccess }: UploadZoneProps) {
           <p className="max-w-xs break-all text-center text-sm font-medium text-ink">
             {file.name}
           </p>
-          <p className="text-xs text-ink-2">{(file.size / 1024 / 1024).toFixed(1)} MB</p>
+          <p className="text-xs text-ink-2">{(() => { const kb = file.size / 1024; return kb < 1024 ? `${Math.round(kb)} KB` : `${(kb / 1024).toFixed(1)} MB` })()}</p>
         </div>
 
         <div className="flex items-center gap-3">

@@ -1,34 +1,34 @@
 import type { Config } from 'tailwindcss'
 
-// SplitHaus design tokens (cream + indigo theme).
-// Primary indigo is defined as a CSS variable (oklch) in index.css — use
-// arbitrary-value syntax [var(--primary)] in classes for it.
-// Hex tokens below cover everything that doesn't need oklch precision.
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
       colors: {
         paper: {
-          DEFAULT: '#FAF7F1', // cream page background
-          '2':     '#F3EFE6', // slightly darker strip
+          DEFAULT: '#F9F7F3',
+          '2':     '#EDEAE3',
         },
         card: {
           DEFAULT: '#FFFFFF',
-          '2':     '#FAF7F1',
+          '2':     '#F9F7F3',
         },
         ink: {
-          DEFAULT: '#1A1820', // deep warm-black body text  (contrast 18:1 on paper)
-          '2':     '#6A6470', // muted / secondary text     (contrast 5.5:1)
-          '3':     '#9A948E', // dim / micro labels         (contrast 3.2:1 ≥14px)
+          DEFAULT: '#1C1B18',
+          '2':     '#6A6470',
+          '3':     '#9A948E',
         },
         accent: {
-          DEFAULT: '#C84B31', // terracotta CTA accent (user-specified token)
+          DEFAULT: '#4F46E5', // indigo — primary actions
+          dark:    '#4338CA',
+        },
+        disc: {
+          DEFAULT: '#C84B31', // terracotta — discounts only
           dark:    '#A83D25',
         },
         rule: {
-          DEFAULT: '#E9E3D6', // hairline borders
-          strong:  '#D8D0BF', // stronger control outlines
+          DEFAULT: '#E9E3D6',
+          strong:  '#D8D0BF',
         },
       },
       fontFamily: {

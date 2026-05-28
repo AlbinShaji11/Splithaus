@@ -36,3 +36,10 @@
 ::selection {
   background: var(--primary-soft);
 }
+
+@media print {
+  body * { visibility: hidden; }
+  #print-content,
+  #print-content * { visibility: visible; }
+  #print-content { position: absolute; inset: 0; }
+}

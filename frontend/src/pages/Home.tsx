@@ -389,26 +389,6 @@ const Hero: FC = () => (
         </a>
       </div>
 
-      {/* Micro trust */}
-      <div className="mt-4 flex flex-wrap items-center justify-center gap-3.5 text-[13px] text-ink-3" aria-label="No signup. No download. Free forever.">
-        <span>No signup</span>
-        <span className="h-[3px] w-[3px] rounded-full bg-ink-3" aria-hidden="true" />
-        <span>No download</span>
-        <span className="h-[3px] w-[3px] rounded-full bg-ink-3" aria-hidden="true" />
-        <span>Free forever</span>
-      </div>
-
-      {/* Avatar trust row */}
-      <p className="mt-6 inline-flex items-center gap-2.5 text-[13px] text-ink-2"
-         aria-label="Loved by share houses across Melbourne, Sydney and Brisbane">
-        <span className="inline-flex" aria-hidden="true">
-          <Avatar pVar="--p1" initial="A" size="sm" />
-          <Avatar pVar="--p2" initial="S" size="sm" offset />
-          <Avatar pVar="--p3" initial="M" size="sm" offset />
-          <Avatar pVar="--p4" initial="J" size="sm" offset />
-        </span>
-        Loved by share houses across Melbourne, Sydney &amp; Brisbane
-      </p>
     </div>
 
     <BrowserMockup />
@@ -421,12 +401,10 @@ interface StoreEntry {
   readonly color: string;
 }
 const STORES: readonly StoreEntry[] = [
-  { name: 'Woolworths',    color: '#00a651' },
-  { name: 'Coles',         color: '#e0001b' },
-  { name: 'Aldi',          color: '#00254b' },
-  { name: 'Kmart',         color: '#e1251b' },
-  { name: 'IGA',           color: '#c8102e' },
-  { name: 'Utility bills', color: '#9A948E' },
+  { name: 'Woolworths', color: '#00a651' },
+  { name: 'Coles',      color: '#e0001b' },
+  { name: 'Kmart',      color: '#e1251b' },
+  { name: 'Costco',     color: '#005daa' },
 ] as const;
 
 const ProofBar: FC = () => (
@@ -640,11 +618,6 @@ const CTABanner: FC = () => (
         >
           Split a receipt now <Arrow />
         </a>
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-3.5 text-[13px] text-ink-3">
-          <span>Takes ~30 seconds</span>
-          <span className="h-[3px] w-[3px] rounded-full bg-ink-3" aria-hidden="true" />
-          <span>No account needed</span>
-        </div>
       </div>
     </div>
   </section>
