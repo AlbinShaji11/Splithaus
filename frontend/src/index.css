@@ -1,3 +1,38 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  /* Electric indigo — oklch for accurate chroma */
+  --primary: oklch(0.58 0.22 282);
+  --primary-soft: oklch(0.58 0.22 282 / 0.12);
+  --primary-glow: oklch(0.58 0.22 282 / 0.30);
+  --primary-fg: #ffffff;
+
+  /* Warm coral-amber accent */
+  --coral: oklch(0.62 0.18 35);
+  --coral-soft: oklch(0.62 0.18 35 / 0.14);
+
+  /* Person avatar colours */
+  --p1: oklch(0.62 0.18 282); /* indigo  */
+  --p2: oklch(0.65 0.18 25);  /* coral   */
+  --p3: oklch(0.62 0.16 152); /* mint    */
+  --p4: oklch(0.70 0.16 75);  /* amber   */
+  --p5: oklch(0.62 0.18 320); /* magenta */
+  --p6: oklch(0.62 0.18 220); /* sky     */
+}
+
+[data-theme="dark"] {
+  --primary: oklch(0.70 0.22 282);
+  --primary-soft: oklch(0.70 0.22 282 / 0.16);
+  --primary-glow: oklch(0.70 0.22 282 / 0.45);
+  --primary-fg: #0e0d12;
+  --p1: oklch(0.72 0.18 282);
+  --p2: oklch(0.72 0.18 25);
+  --p3: oklch(0.70 0.16 152);
+  --p4: oklch(0.78 0.16 75);
+}
+
+::selection {
+  background: var(--primary-soft);
+}
