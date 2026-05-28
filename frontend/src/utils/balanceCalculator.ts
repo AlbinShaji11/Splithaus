@@ -1,102 +1,236 @@
-import type { Balance, Person, Receipt, Settlement } from '@/types'
+import type { ItemSplit, Person, ReceiptItem, Settlement } from '@/types'
 
 function round(n: number): number {
   return Math.round(n * 100) / 100
 }
 
-export function calculateBalances(receipt: Receipt, people: Person[]): Balance[] {
-  if (!people.length) return []
-
-  const shares = new Map<string, number>()
-  people.forEach(p => shares.set(p.id, 0))
-
-  for (const item of receipt.items) {
-    const { totalPrice, splitCode, assignedTo, customAmounts } = item
-
-    if (splitCode === 'CUSTOM' && customAmounts) {
-      for (const [personId, amount] of Object.entries(customAmounts)) {
-        shares.set(personId, (shares.get(personId) ?? 0) + amount)
-      }
-    } else {
-      const targets = assignedTo.length > 0 ? assignedTo : people.map(p => p.id)
-      const perPerson = targets.length > 0 ? totalPrice / targets.length : 0
-      for (const personId of targets) {
-        shares.set(personId, (shares.get(personId) ?? 0) + perPerson)
-      }
-    }
+export function detectDiscountType(
+  itemName: string,
+  store: string,
+): 'ww_brand' | 'team' | 'generic' {
+  if (/woolworths/i.test(store)) {
+    if (/ww\s*brand/i.test(itemName)) return 'ww_brand'
+    if (/team\s*discount/i.test(itemName)) return 'team'
   }
-
-  return people.map(person => {
-    const share = round(shares.get(person.id) ?? 0)
-    const isPayer = person.id === receipt.paidBy
-
-    if (isPayer) {
-      const totalOwed = round(receipt.total - share)
-      return {
-        personId: person.id,
-        name: person.name,
-        color: person.color,
-        totalOwes: 0,
-        totalOwed,
-        net: totalOwed,
-      }
-    }
-
-    return {
-      personId: person.id,
-      name: person.name,
-      color: person.color,
-      totalOwes: share,
-      totalOwed: 0,
-      net: -share,
-    }
-  })
+  return 'generic'
 }
 
-export function calculateSettlements(balances: Balance[]): Settlement[] {
+function calcSingleItemShares(
+  price: number,
+  split: ItemSplit | undefined,
+  people: Person[],
+): Record<string, number> {
+  const result: Record<string, number> = {}
+  people.forEach(p => { result[p.id] = 0 })
+
+  if (!split || split.mode === 'everyone') {
+    const share = round(price / people.length)
+    people.forEach(p => { result[p.id] = share })
+  } else if (split.mode === 'individual') {
+    const id = split.assignedTo[0]
+    if (id) result[id] = round(price)
+  } else if (split.mode === 'subset') {
+    const n = split.assignedTo.length
+    if (n > 0) {
+      const share = round(price / n)
+      split.assignedTo.forEach(id => { result[id] = share })
+    }
+  } else if (split.mode === 'proportion' && split.proportions) {
+    const totalRatio = split.proportions.reduce((s, p) => s + p.ratio, 0)
+    if (totalRatio > 0) {
+      split.proportions.forEach(({ personId, ratio }) => {
+        result[personId] = round(price * (ratio / totalRatio))
+      })
+    }
+  }
+  return result
+}
+
+function calcPositiveContribs(
+  items: ReceiptItem[],
+  splits: ItemSplit[],
+  people: Person[],
+): Record<string, number> {
+  const contribs: Record<string, number> = {}
+  people.forEach(p => { contribs[p.id] = 0 })
+  const splitMap = new Map(splits.map(s => [s.itemIndex, s]))
+
+  items.forEach((item, idx) => {
+    if (item.type !== 'item') return
+    const shares = calcSingleItemShares(item.price, splitMap.get(idx), people)
+    Object.entries(shares).forEach(([id, v]) => { contribs[id] = round(contribs[id] + v) })
+  })
+  return contribs
+}
+
+function calcWWContribs(
+  items: ReceiptItem[],
+  splits: ItemSplit[],
+  people: Person[],
+): Record<string, number> {
+  const contribs: Record<string, number> = {}
+  people.forEach(p => { contribs[p.id] = 0 })
+  const splitMap = new Map(splits.map(s => [s.itemIndex, s]))
+
+  items.forEach((item, idx) => {
+    if (item.type !== 'item') return
+    if (!/\bww\b|woolworths/i.test(item.name)) return
+    const shares = calcSingleItemShares(item.price, splitMap.get(idx), people)
+    Object.entries(shares).forEach(([id, v]) => { contribs[id] = round(contribs[id] + v) })
+  })
+  return contribs
+}
+
+function distributeDiscount(
+  price: number,
+  contribs: Record<string, number>,
+  people: Person[],
+): Record<string, number> {
+  const result: Record<string, number> = {}
+  people.forEach(p => { result[p.id] = 0 })
+  const total = Object.values(contribs).reduce((s, v) => s + v, 0)
+
+  if (total <= 0) {
+    const share = round(price / people.length)
+    people.forEach(p => { result[p.id] = share })
+    return result
+  }
+  people.forEach(p => {
+    if ((contribs[p.id] ?? 0) > 0) {
+      result[p.id] = round(price * (contribs[p.id] / total))
+    }
+  })
+  return result
+}
+
+export function getItemShares(
+  item: ReceiptItem,
+  itemIdx: number,
+  allItems: ReceiptItem[],
+  splits: ItemSplit[],
+  people: Person[],
+  storeName: string,
+): Record<string, number> {
+  const split = splits.find(s => s.itemIndex === itemIdx)
+  if (item.type === 'discount' && (!split || split.mode === 'everyone')) {
+    const positiveContribs = calcPositiveContribs(allItems, splits, people)
+    const discType = detectDiscountType(item.name, storeName)
+    let contribs = positiveContribs
+    if (discType === 'ww_brand') {
+      const wwContribs = calcWWContribs(allItems, splits, people)
+      if (Object.values(wwContribs).some(v => v > 0)) contribs = wwContribs
+    }
+    return distributeDiscount(item.price, contribs, people)
+  }
+  return calcSingleItemShares(item.price, split, people)
+}
+
+export function calculatePersonTotals(
+  items: ReceiptItem[],
+  splits: ItemSplit[],
+  people: Person[],
+  paidById: string | null,
+  storeName = '',
+): Record<string, number> {
+  const totals: Record<string, number> = {}
+  people.forEach(p => { totals[p.id] = 0 })
+
+  const splitMap = new Map(splits.map(s => [s.itemIndex, s]))
+  const positiveContribs = calcPositiveContribs(items, splits, people)
+
+  items.forEach((item, idx) => {
+    const split = splitMap.get(idx)
+    const price = item.price
+
+    if (item.type === 'discount' && (!split || split.mode === 'everyone')) {
+      const discType = detectDiscountType(item.name, storeName)
+      let contribs = positiveContribs
+      if (discType === 'ww_brand') {
+        const wwContribs = calcWWContribs(items, splits, people)
+        if (Object.values(wwContribs).some(v => v > 0)) contribs = wwContribs
+      }
+      const shares = distributeDiscount(price, contribs, people)
+      Object.entries(shares).forEach(([id, v]) => { totals[id] = round(totals[id] + v) })
+    } else if (!split || split.mode === 'everyone') {
+      const share = round(price / people.length)
+      people.forEach(p => { totals[p.id] = round(totals[p.id] + share) })
+    } else if (split.mode === 'individual') {
+      const personId = split.assignedTo[0]
+      if (personId) totals[personId] = round(totals[personId] + price)
+    } else if (split.mode === 'subset') {
+      const n = split.assignedTo.length
+      if (n > 0) {
+        const share = round(price / n)
+        split.assignedTo.forEach(id => { totals[id] = round(totals[id] + share) })
+      }
+    } else if (split.mode === 'proportion' && split.proportions) {
+      const totalRatio = split.proportions.reduce((s, p) => s + p.ratio, 0)
+      if (totalRatio > 0) {
+        split.proportions.forEach(({ personId, ratio }) => {
+          totals[personId] = round(totals[personId] + round(price * (ratio / totalRatio)))
+        })
+      }
+    }
+  })
+
+  if (paidById) {
+    const receiptTotal = round(items.reduce((s, i) => s + i.price, 0))
+    totals[paidById] = round(totals[paidById] - receiptTotal)
+  }
+  return totals
+}
+
+export function calculateSettlements(
+  totals: Record<string, number>,
+  people: Person[],
+): Settlement[] {
   const settlements: Settlement[] = []
 
-  const creditors = balances
-    .filter(b => b.net > 0.005)
-    .map(b => ({ ...b, remaining: b.net }))
+  const debtors = people
+    .filter(p => (totals[p.id] ?? 0) > 0.005)
+    .map(p => ({ ...p, remaining: totals[p.id] }))
     .sort((a, b) => b.remaining - a.remaining)
 
-  const debtors = balances
-    .filter(b => b.net < -0.005)
-    .map(b => ({ ...b, remaining: Math.abs(b.net) }))
+  const creditors = people
+    .filter(p => (totals[p.id] ?? 0) < -0.005)
+    .map(p => ({ ...p, remaining: Math.abs(totals[p.id]) }))
     .sort((a, b) => b.remaining - a.remaining)
 
-  let ci = 0
-  let di = 0
-
-  while (ci < creditors.length && di < debtors.length) {
-    const creditor = creditors[ci]
-    const debtor = debtors[di]
-    const amount = round(Math.min(creditor.remaining, debtor.remaining))
-
-    settlements.push({
-      from: debtor.personId,
-      fromName: debtor.name,
-      to: creditor.personId,
-      toName: creditor.name,
-      amount,
-    })
-
-    creditor.remaining = round(creditor.remaining - amount)
+  let di = 0; let ci = 0
+  while (di < debtors.length && ci < creditors.length) {
+    const debtor = debtors[di]; const creditor = creditors[ci]
+    const amount = round(Math.min(debtor.remaining, creditor.remaining))
+    settlements.push({ fromId: debtor.id, fromName: debtor.name, toId: creditor.id, toName: creditor.name, amount })
     debtor.remaining = round(debtor.remaining - amount)
-
-    if (creditor.remaining < 0.005) ci++
+    creditor.remaining = round(creditor.remaining - amount)
     if (debtor.remaining < 0.005) di++
+    if (creditor.remaining < 0.005) ci++
   }
-
   return settlements
 }
 
-export function generateShareText(settlements: Settlement[], storeName: string): string {
-  const date = new Date().toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })
-  const lines = [
-    `\u{1F9FE} ${storeName} ${date}`,
-    ...settlements.map(s => `${s.fromName} owes ${s.toName} $${s.amount.toFixed(2)}`),
-  ]
-  return lines.join('\n')
+export function generateShareText(
+  settlements: Settlement[],
+  storeName: string,
+  items: ReceiptItem[],
+  splits: ItemSplit[],
+  people: Person[],
+): string {
+  const date = new Date().toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })
+  const itemLines = items.map((item, idx) => {
+    const shares = getItemShares(item, idx, items, splits, people, storeName)
+    const parts = people
+      .filter(p => Math.abs(shares[p.id] ?? 0) >= 0.01)
+      .map(p => `${p.name} ${shares[p.id] < 0 ? '-' : ''}$${Math.abs(shares[p.id]).toFixed(2)}`)
+    return `${item.name}: ${parts.join(', ')}`
+  })
+  return [
+    `🧾 ${storeName} · ${date}`,
+    '',
+    ...itemLines,
+    '─────────────────',
+    ...settlements.map(s => `${s.fromName} pays ${s.toName} $${s.amount.toFixed(2)}`),
+    '',
+    'Split with SplitHaus (no signup needed)',
+  ].join('\n')
 }
