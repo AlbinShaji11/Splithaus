@@ -1,28 +1,18 @@
-from typing import List, Optional
-
 from pydantic import BaseModel
+from typing import Optional
 
 
 class ReceiptItem(BaseModel):
-    id: str
     name: str
-    quantity: float
-    unit_price: float
-    total_price: float
-    category: str
-    confidence: float
+    price: float
+    type: str  # "item" or "discount"
 
 
 class ReceiptScanResponse(BaseModel):
-    store_name: str
-    receipt_date: Optional[str] = None
-    items: List[ReceiptItem]
+    store: str
+    items: list[ReceiptItem]
     subtotal: float
     gst: float
     total: float
-    currency: str = "AUD"
-    warnings: List[str]
-
-
-class ScanReceiptRequest(BaseModel):
-    pass
+    line_count: int
+    warnings: list[str]
