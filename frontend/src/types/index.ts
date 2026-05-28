@@ -1,12 +1,24 @@
-export type SplitCode = 'ALL' | 'CUSTOM' | string
+export type SplitMode = 'everyone' | 'individual' | 'subset' | 'proportion'
 
 export interface Person {
   id: string
   name: string
   color: string
+  initial: string
 }
 
-// API response types - matches POST /api/scan-receipt
+export interface ProportionShare {
+  personId: string
+  ratio: number
+}
+
+export interface ItemSplit {
+  itemIndex: number
+  mode: SplitMode
+  assignedTo: string[]
+  proportions?: ProportionShare[]
+}
+
 export interface ReceiptItem {
   name: string
   price: number
@@ -23,63 +35,10 @@ export interface ScannedReceipt {
   warnings: string[]
 }
 
-// Extended item used in split sessions
-export interface SessionItem {
-  id: string
-  name: string
-  quantity: number
-  unitPrice: number
-  totalPrice: number
-  category: string
-  confidence: number
-  splitCode: SplitCode
-  assignedTo: string[]
-  customAmounts?: Record<string, number>
-}
-
-export interface Receipt {
-  id: string
-  storeName: string
-  receiptDate: string | null
-  items: SessionItem[]
-  subtotal: number
-  gst: number
-  total: number
-  paidBy: string | null
-  scannedAt: string
-}
-
-export interface Balance {
-  personId: string
-  name: string
-  color: string
-  totalOwes: number
-  totalOwed: number
-  net: number
-}
-
 export interface Settlement {
-  from: string
+  fromId: string
   fromName: string
-  to: string
+  toId: string
   toName: string
   amount: number
-}
-
-export interface SplitSession {
-  id: string
-  receipt: Receipt
-  people: Person[]
-  balances: Balance[]
-  settlements: Settlement[]
-  createdAt: string
-  isSettled: boolean
-}
-
-export type AppState = {
-  currentReceipt: Receipt | null
-  people: Person[]
-  sessions: SplitSession[]
-  isScanning: boolean
-  scanError: string | null
 }

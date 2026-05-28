@@ -1,102 +1,103 @@
-import type { Balance, Person, Receipt, Settlement } from '@/types'
+import type { ItemSplit, Person, ReceiptItem, Settlement } from '@/types'
 
 function round(n: number): number {
   return Math.round(n * 100) / 100
 }
 
-export function calculateBalances(receipt: Receipt, people: Person[]): Balance[] {
-  if (!people.length) return []
+export function calculatePersonTotals(
+  items: ReceiptItem[],
+  splits: ItemSplit[],
+  people: Person[],
+  paidById: string | null,
+): Record<string, number> {
+  const totals: Record<string, number> = {}
+  people.forEach(p => { totals[p.id] = 0 })
 
-  const shares = new Map<string, number>()
-  people.forEach(p => shares.set(p.id, 0))
+  const splitMap = new Map(splits.map(s => [s.itemIndex, s]))
 
-  for (const item of receipt.items) {
-    const { totalPrice, splitCode, assignedTo, customAmounts } = item
+  items.forEach((item, idx) => {
+    const split = splitMap.get(idx)
+    const price = item.price
 
-    if (splitCode === 'CUSTOM' && customAmounts) {
-      for (const [personId, amount] of Object.entries(customAmounts)) {
-        shares.set(personId, (shares.get(personId) ?? 0) + amount)
+    if (!split || split.mode === 'everyone') {
+      const share = round(price / people.length)
+      people.forEach(p => { totals[p.id] = round(totals[p.id] + share) })
+    } else if (split.mode === 'individual') {
+      const personId = split.assignedTo[0]
+      if (personId) totals[personId] = round(totals[personId] + price)
+    } else if (split.mode === 'subset') {
+      const n = split.assignedTo.length
+      if (n > 0) {
+        const share = round(price / n)
+        split.assignedTo.forEach(id => { totals[id] = round(totals[id] + share) })
       }
-    } else {
-      const targets = assignedTo.length > 0 ? assignedTo : people.map(p => p.id)
-      const perPerson = targets.length > 0 ? totalPrice / targets.length : 0
-      for (const personId of targets) {
-        shares.set(personId, (shares.get(personId) ?? 0) + perPerson)
+    } else if (split.mode === 'proportion' && split.proportions) {
+      const totalRatio = split.proportions.reduce((s, p) => s + p.ratio, 0)
+      if (totalRatio > 0) {
+        split.proportions.forEach(({ personId, ratio }) => {
+          totals[personId] = round(totals[personId] + round(price * (ratio / totalRatio)))
+        })
       }
-    }
-  }
-
-  return people.map(person => {
-    const share = round(shares.get(person.id) ?? 0)
-    const isPayer = person.id === receipt.paidBy
-
-    if (isPayer) {
-      const totalOwed = round(receipt.total - share)
-      return {
-        personId: person.id,
-        name: person.name,
-        color: person.color,
-        totalOwes: 0,
-        totalOwed,
-        net: totalOwed,
-      }
-    }
-
-    return {
-      personId: person.id,
-      name: person.name,
-      color: person.color,
-      totalOwes: share,
-      totalOwed: 0,
-      net: -share,
     }
   })
+
+  if (paidById) {
+    const receiptTotal = round(items.reduce((s, item) => s + item.price, 0))
+    totals[paidById] = round(totals[paidById] - receiptTotal)
+  }
+
+  return totals
 }
 
-export function calculateSettlements(balances: Balance[]): Settlement[] {
+export function calculateSettlements(
+  totals: Record<string, number>,
+  people: Person[],
+): Settlement[] {
   const settlements: Settlement[] = []
 
-  const creditors = balances
-    .filter(b => b.net > 0.005)
-    .map(b => ({ ...b, remaining: b.net }))
+  const debtors = people
+    .filter(p => (totals[p.id] ?? 0) > 0.005)
+    .map(p => ({ ...p, remaining: totals[p.id] }))
     .sort((a, b) => b.remaining - a.remaining)
 
-  const debtors = balances
-    .filter(b => b.net < -0.005)
-    .map(b => ({ ...b, remaining: Math.abs(b.net) }))
+  const creditors = people
+    .filter(p => (totals[p.id] ?? 0) < -0.005)
+    .map(p => ({ ...p, remaining: Math.abs(totals[p.id]) }))
     .sort((a, b) => b.remaining - a.remaining)
 
-  let ci = 0
   let di = 0
+  let ci = 0
 
-  while (ci < creditors.length && di < debtors.length) {
-    const creditor = creditors[ci]
+  while (di < debtors.length && ci < creditors.length) {
     const debtor = debtors[di]
-    const amount = round(Math.min(creditor.remaining, debtor.remaining))
+    const creditor = creditors[ci]
+    const amount = round(Math.min(debtor.remaining, creditor.remaining))
 
     settlements.push({
-      from: debtor.personId,
+      fromId: debtor.id,
       fromName: debtor.name,
-      to: creditor.personId,
+      toId: creditor.id,
       toName: creditor.name,
       amount,
     })
 
-    creditor.remaining = round(creditor.remaining - amount)
     debtor.remaining = round(debtor.remaining - amount)
+    creditor.remaining = round(creditor.remaining - amount)
 
-    if (creditor.remaining < 0.005) ci++
     if (debtor.remaining < 0.005) di++
+    if (creditor.remaining < 0.005) ci++
   }
 
   return settlements
 }
 
-export function generateShareText(settlements: Settlement[], storeName: string): string {
+export function generateShareText(
+  settlements: Settlement[],
+  storeName: string,
+): string {
   const date = new Date().toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })
-  const lines = [
-    `\u{1F9FE} ${storeName} ${date}`,
-    ...settlements.map(s => `${s.fromName} owes ${s.toName} $${s.amount.toFixed(2)}`),
-  ]
-  return lines.join('\n')
+  return [
+    `🧾 ${storeName} ${date}`,
+    ...settlements.map(s => `${s.fromName} pays ${s.toName} $${s.amount.toFixed(2)}`),
+  ].join('\n')
 }
