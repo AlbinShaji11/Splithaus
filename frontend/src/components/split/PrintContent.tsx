@@ -2,6 +2,10 @@ import { createPortal } from 'react-dom'
 import type { ItemSplit, Person, ReceiptItem, ScannedReceipt, Settlement } from '@/types'
 import { getItemShares, detectDiscountType, calculatePersonTotals } from '@/utils/balanceCalculator'
 
+function round(n: number): number {
+  return Math.round(n * 100) / 100
+}
+
 interface Props {
   receipt: ScannedReceipt
   items: ReceiptItem[]
@@ -14,6 +18,18 @@ export default function PrintContent({ receipt, items, splits, people, settlemen
   const date = new Date().toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })
   const rawTotals = calculatePersonTotals(items, splits, people, null, receipt.store)
   const hr = <div style={{ borderTop: '1px solid #ccc', margin: '12px 0' }} />
+
+  // Per-person discount contributions for the PDF
+  const discountSharesById: Record<string, number> = {}
+  people.forEach(p => { discountSharesById[p.id] = 0 })
+  items.forEach((item, idx) => {
+    if (item.type !== 'discount') return
+    const shares = getItemShares(item, idx, items, splits, people, receipt.store)
+    Object.entries(shares).forEach(([id, v]) => {
+      discountSharesById[id] = round(discountSharesById[id] + v)
+    })
+  })
+  const hasDiscounts = items.some(i => i.type === 'discount')
 
   const content = (
     <div id="print-content">
@@ -36,7 +52,7 @@ export default function PrintContent({ receipt, items, splits, people, settlemen
         const discType = item.type === 'discount' ? detectDiscountType(item.name, receipt.store) : null
         const discNote = discType === 'ww_brand' ? ' (WW items only)' : discType === 'team' ? ' (proportional)' : ''
         return (
-          <div key={idx} style={{ marginBottom: 6 }}>
+          <div key={idx} style={{ marginBottom: 6, pageBreakInside: 'avoid' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span>{item.name}</span>
               <span style={{ fontFamily: 'monospace' }}>{item.price < 0 ? '-' : ''}${Math.abs(item.price).toFixed(2)}</span>
@@ -54,12 +70,25 @@ export default function PrintContent({ receipt, items, splits, people, settlemen
       <p style={{ fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#888', margin: '0 0 6px' }}>
         Each Person's Share
       </p>
-      {people.map(p => (
-        <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-          <span>{p.name}</span>
-          <span style={{ fontFamily: 'monospace' }}>${(rawTotals[p.id] ?? 0).toFixed(2)}</span>
-        </div>
-      ))}
+      {people.map(p => {
+        const net = rawTotals[p.id] ?? 0
+        const discShare = discountSharesById[p.id] ?? 0
+        const itemsShare = round(net - discShare)
+        return (
+          <div key={p.id} style={{ marginBottom: hasDiscounts ? 6 : 3, pageBreakInside: 'avoid' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ fontWeight: 500 }}>{p.name}</span>
+              <span style={{ fontFamily: 'monospace' }}>${net.toFixed(2)}</span>
+            </div>
+            {hasDiscounts && discShare < 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#666', paddingLeft: 12 }}>
+                <span>Items: ${itemsShare.toFixed(2)}</span>
+                <span style={{ color: '#C84B31' }}>Discount: -${Math.abs(discShare).toFixed(2)}</span>
+              </div>
+            )}
+          </div>
+        )
+      })}
 
       {hr}
 

@@ -1,7 +1,11 @@
 import { useState } from 'react'
 import type { ItemSplit, Person, ReceiptItem, ScannedReceipt, Settlement } from '@/types'
-import { generateShareText, calculatePersonTotals } from '@/utils/balanceCalculator'
+import { generateShareText, calculatePersonTotals, getItemShares } from '@/utils/balanceCalculator'
 import PrintContent from './PrintContent'
+
+function round(n: number): number {
+  return Math.round(n * 100) / 100
+}
 
 interface Props {
   settlements: Settlement[]
@@ -19,6 +23,18 @@ export default function SettlementScreen({ settlements, receipt, items, splits, 
 
   const rawTotals = calculatePersonTotals(items, splits, people, null, receipt.store)
   const billTotal = Math.round(items.reduce((s, i) => s + i.price, 0) * 100) / 100
+
+  // Per-person discount contributions for the breakdown
+  const discountSharesById: Record<string, number> = {}
+  people.forEach(p => { discountSharesById[p.id] = 0 })
+  items.forEach((item, idx) => {
+    if (item.type !== 'discount') return
+    const shares = getItemShares(item, idx, items, splits, people, receipt.store)
+    Object.entries(shares).forEach(([id, v]) => {
+      discountSharesById[id] = round(discountSharesById[id] + v)
+    })
+  })
+  const hasDiscounts = items.some(i => i.type === 'discount')
 
   function handleCopy() {
     const text = generateShareText(settlements, receipt.store, items, splits, people)
@@ -51,19 +67,31 @@ export default function SettlementScreen({ settlements, receipt, items, splits, 
           <span className="font-display text-sm font-semibold text-ink">Bill total</span>
           <span className="font-mono text-xl font-bold text-ink">${billTotal.toFixed(2)}</span>
         </div>
-        <div className="space-y-2 border-t border-rule pt-3">
+        <div className="space-y-3 border-t border-rule pt-3">
           {people.map(person => {
-            const share = rawTotals[person.id] ?? 0
+            const net = rawTotals[person.id] ?? 0
+            const discShare = discountSharesById[person.id] ?? 0
+            const itemsShare = round(net - discShare)
             return (
-              <div key={person.id} className="flex items-center gap-2">
+              <div key={person.id} className="flex items-start gap-2">
                 <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
                   style={{ background: person.color }}>
                   {person.initial}
                 </div>
-                <span className="flex-1 text-sm text-ink">{person.name}</span>
-                <span className="font-mono text-sm font-medium tabular-nums text-ink">
-                  ${share.toFixed(2)}
-                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-ink">{person.name}</span>
+                    <span className="font-mono text-sm font-semibold tabular-nums text-ink">
+                      ${net.toFixed(2)}
+                    </span>
+                  </div>
+                  {hasDiscounts && discShare < 0 && (
+                    <div className="flex items-center justify-between text-xs text-ink-2">
+                      <span>Items: ${itemsShare.toFixed(2)}</span>
+                      <span className="font-mono text-disc">Discount: -${Math.abs(discShare).toFixed(2)}</span>
+                    </div>
+                  )}
+                </div>
               </div>
             )
           })}
