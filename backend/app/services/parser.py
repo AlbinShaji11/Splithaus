@@ -1,4 +1,4 @@
-# coding: ascii
+# coding: utf-8
 import os
 import re
 import tempfile
@@ -261,7 +261,7 @@ def parse_html(file_bytes: bytes) -> ReceiptScanResponse:
     if not text.strip():
         raise HTTPException(status_code=400, detail='No readable text found in HTML file.')
 
-    # Strip navigation/header text — receipt content always begins at TAX INVOICE ($)
+    # Strip navigation/header text - receipt content always begins at TAX INVOICE ($)
     marker = 'TAX INVOICE ($)'
     idx = text.find(marker)
     if idx == -1:

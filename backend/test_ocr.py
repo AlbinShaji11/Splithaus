@@ -1,3 +1,4 @@
+# coding: utf-8
 import json
 import os
 import re
@@ -22,7 +23,7 @@ def parse_woolworths(lines: list) -> dict:
     Parse Woolworths digital receipt lines.
 
     Layout (from pdfplumber):
-    Each line is full width — item name + price on same line
+    Each line is full width - item name + price on same line
     OR item name alone (price on next line or modifier line below)
 
     Cases:
@@ -113,7 +114,7 @@ def parse_woolworths(lines: list) -> dict:
         next1_lower = next1.lower()
         next2_lower = next2.lower()
 
-        # ── Case 3: Weight-based ─────────────────────────────────────
+        # -- Case 3: Weight-based -------------------------------------
         if weight_re.search(next1_lower):
             # Price is on the weight line
             m = price_at_end.match(next1)
@@ -129,7 +130,7 @@ def parse_woolworths(lines: list) -> dict:
             i += 2
             continue
 
-        # ── Case 2 & 4: Qty-based ────────────────────────────────────
+        # -- Case 2 & 4: Qty-based ------------------------------------
         if qty_re.match(next1_lower):
             # Price is on the Qty line
             m = price_at_end.match(next1)
@@ -160,7 +161,7 @@ def parse_woolworths(lines: list) -> dict:
             i += 2
             continue
 
-        # ── Case 5: Discounts ────────────────────────────────────────
+        # -- Case 5: Discounts ----------------------------------------
         if re.search(r'\bdisc\b|discount', tl):
             m = price_at_end.match(line)
             if m:
@@ -175,7 +176,7 @@ def parse_woolworths(lines: list) -> dict:
             i += 1
             continue
 
-        # ── Case 1: Standard item ────────────────────────────────────
+        # -- Case 1: Standard item ------------------------------------
         m = price_at_end.match(line)
         if m:
             name = re.sub(r'^[\^#\*\s]+', '', m.group(1)).strip()
@@ -245,7 +246,7 @@ def scan_receipt(file_path: str):
     print(f"Scanning: {file_path} ({ext.upper()})")
     print('='*50)
 
-    # ── Extract text ─────────────────────────────────────────────────
+    # -- Extract text -------------------------------------------------
     if ext == '.pdf':
         print("Extracting text from PDF...")
         text = ''
@@ -256,7 +257,7 @@ def scan_receipt(file_path: str):
                     text += extracted + '\n'
 
         if not text.strip():
-            print("No text found in PDF — may be a scanned image.")
+            print("No text found in PDF - may be a scanned image.")
             print("Try a JPG/PNG photo instead.")
             return
 
@@ -264,7 +265,7 @@ def scan_receipt(file_path: str):
 
     elif ext in ['.jpg', '.jpeg', '.png', '.webp']:
         # For images, fall back to PaddleOCR
-        print("Image file — using PaddleOCR...")
+        print("Image file - using PaddleOCR...")
         from paddleocr import PaddleOCR
 
         ocr = PaddleOCR(
@@ -282,12 +283,12 @@ def scan_receipt(file_path: str):
 
     print(f"Extracted {len(lines)} lines")
 
-    # ── Parse ────────────────────────────────────────────────────────
+    # -- Parse --------------------------------------------------------
     store = detect_store(lines)
     items = parse_woolworths(lines)
     totals = extract_totals(lines)
 
-    # ── Print results ────────────────────────────────────────────────
+    # -- Print results ------------------------------------------------
     print(f"\n{'='*50}")
     print("=== PARSED RECEIPT ===")
     print(f"Store:     {store}")
@@ -308,13 +309,13 @@ def scan_receipt(file_path: str):
         diff = abs(item_total - totals['total'])
         if diff > 0.10:
             print(
-                f"\n⚠  Items sum (${item_total:.2f}) differs from "
+                f"\n[!]  Items sum (${item_total:.2f}) differs from "
                 f"total (${totals['total']:.2f}) by ${diff:.2f}"
             )
         else:
-            print(f"\n✓  Totals match (diff: ${diff:.2f})")
+            print(f"\n[ok]  Totals match (diff: ${diff:.2f})")
 
-    # ── Save JSON ────────────────────────────────────────────────────
+    # -- Save JSON ----------------------------------------------------
     result = {
         'store': store,
         'items': items,
@@ -327,7 +328,7 @@ def scan_receipt(file_path: str):
     output = file_path.replace(ext, '_parsed.json')
     with open(output, 'w') as f:
         json.dump(result, f, indent=2)
-    print(f"\nSaved → {output}")
+    print(f"\nSaved -> {output}")
 
 
 if __name__ == '__main__':
