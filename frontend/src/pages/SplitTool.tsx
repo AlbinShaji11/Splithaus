@@ -138,7 +138,10 @@ export default function SplitTool() {
             </div>
             <div className="mx-auto max-w-lg">
               <UploadZone onSuccess={handleScanSuccess} />
-              <p className="mt-4 text-center text-sm text-ink-2">
+              <p className="mt-3 text-center text-xs text-ink-3">
+                Supports receipts from: Woolworths
+              </p>
+              <p className="mt-2 text-center text-sm text-ink-2">
                 Or{' '}
                 <button onClick={() => { setReceipt(EMPTY_RECEIPT); setItems([]); setPageState('review') }}
                   className="font-medium text-accent underline underline-offset-2 transition hover:no-underline focus:outline-none">
