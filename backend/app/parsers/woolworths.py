@@ -126,7 +126,7 @@ def parse_woolworths(lines: list) -> list:
         m = price_at_end.match(line)
         if m:
             name = re.sub(r'^[\^#\*\s]+', '', m.group(1)).strip()
-            price = extract_price(m.group(2))
+            price = _extract_price(m.group(2))
             if price and price > 0 and len(name) > 2:
                 items.append({'name': name, 'price': price, 'type': 'item'})
 

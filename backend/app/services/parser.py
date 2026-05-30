@@ -8,7 +8,7 @@ import pdfplumber
 from fastapi import HTTPException
 
 from app.models.schemas import ReceiptItem, ReceiptScanResponse
-from app.parsers import parse_receipt
+from app.parsers import parse_receipt, parse_receipt_html
 
 
 def extract_price(text: str) -> float | None:
@@ -244,6 +244,27 @@ def parse_pdf(file_bytes: bytes) -> ReceiptScanResponse:
     finally:
         if tmp_path and os.path.exists(tmp_path):
             os.unlink(tmp_path)
+
+
+def parse_html(file_bytes: bytes) -> ReceiptScanResponse:
+    from bs4 import BeautifulSoup  # noqa: PLC0415 - lazy import, optional dep
+    from app.parsers.costco import extract_costco_totals
+
+    html = file_bytes.decode('utf-8', errors='replace')
+    soup = BeautifulSoup(html, 'html.parser')
+
+    container = soup.find('mat-dialog-container')
+    if not container:
+        container = soup.find('body') or soup
+
+    text = container.get_text(separator='\n', strip=True)
+    if not text.strip():
+        raise HTTPException(status_code=400, detail='No readable text found in HTML file.')
+
+    items_raw = parse_receipt_html(text)
+    totals = extract_costco_totals(text)
+    lines = [ln for ln in text.splitlines() if ln.strip()]
+    return _build_response(lines, items_raw, totals, 'Costco')
 
 
 def parse_image(file_bytes: bytes, filename: str) -> ReceiptScanResponse:
