@@ -139,7 +139,12 @@ export default function SplitTool() {
             <div className="mx-auto max-w-lg">
               <UploadZone onSuccess={handleScanSuccess} />
               <p className="mt-3 text-center text-xs text-ink-3">
-                Supports receipts from: Woolworths
+                Supports receipts from: Woolworths (PDF) · Costco (HTML)
+              </p>
+              <p className="mt-1 text-center text-xs text-ink-3">
+                For Costco: open your receipt on{' '}
+                <span className="font-medium">costco.com.au → My Account → Receipts</span>
+                , then File → Save As (.html)
               </p>
               <p className="mt-2 text-center text-sm text-ink-2">
                 Or{' '}

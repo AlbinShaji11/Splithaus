@@ -82,7 +82,10 @@ export default function UploadZone({ onSuccess }: UploadZoneProps) {
       return
     }
     freePreview()
-    if (raw.type !== 'application/pdf') {
+    const isDocumentType = raw.type === 'application/pdf'
+      || raw.type === 'text/html'
+      || raw.name.toLowerCase().endsWith('.html')
+    if (!isDocumentType) {
       setPreviewUrl(URL.createObjectURL(raw))
     }
     setFile(raw)
@@ -95,7 +98,8 @@ export default function UploadZone({ onSuccess }: UploadZoneProps) {
     startCycle()
     try {
       let toSend: File = raw
-      if (raw.type !== 'application/pdf') {
+      const isHtmlFile = raw.type === 'text/html' || raw.name.toLowerCase().endsWith('.html')
+      if (raw.type !== 'application/pdf' && !isHtmlFile) {
         toSend = await imageCompression(raw, {
           maxSizeMB: 2,
           maxWidthOrHeight: 1800,
@@ -120,7 +124,7 @@ export default function UploadZone({ onSuccess }: UploadZoneProps) {
         setError(
           code === 'file-too-large'
             ? 'File exceeds 10 MB - please choose a smaller file.'
-            : 'Unsupported file type. Please use PDF, JPG, PNG, or WEBP.',
+            : 'Unsupported file type. Please use PDF, JPG, PNG, WEBP, or HTML.',
         )
         setState('error')
         return
@@ -137,6 +141,7 @@ export default function UploadZone({ onSuccess }: UploadZoneProps) {
       'image/jpeg': ['.jpg', '.jpeg'],
       'image/png': ['.png'],
       'image/webp': ['.webp'],
+      'text/html': ['.html'],
     },
     maxSize: MAX_BYTES,
     multiple: false,
@@ -144,6 +149,7 @@ export default function UploadZone({ onSuccess }: UploadZoneProps) {
   })
 
   const isPdf = file?.type === 'application/pdf'
+  const isHtml = file?.type === 'text/html' || file?.name?.toLowerCase().endsWith('.html')
 
   // -- Uploading --
   if (state === 'uploading') {
@@ -187,23 +193,22 @@ export default function UploadZone({ onSuccess }: UploadZoneProps) {
     return (
       <div className="flex min-h-[480px] flex-col items-center justify-center gap-6 rounded-lg border border-rule bg-card px-8 py-12 shadow-card">
         <div className="flex flex-col items-center gap-3">
-          {isPdf ? (
+          {isPdf || isHtml ? (
             <div className="flex h-24 w-20 flex-col items-center justify-center gap-1 rounded-md border border-rule-strong bg-paper-2">
-              <svg
-                width="32"
-                height="32"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                className="text-accent"
-              >
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <polyline points="14 2 14 8 20 8" />
-                <line x1="16" y1="13" x2="8" y2="13" />
-                <line x1="16" y1="17" x2="8" y2="17" />
-              </svg>
-              <span className="font-mono text-xs font-medium text-ink-2">PDF</span>
+              {isHtml ? (
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-accent">
+                  <polyline points="16 18 22 12 16 6" />
+                  <polyline points="8 6 2 12 8 18" />
+                </svg>
+              ) : (
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-accent">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="16" y1="13" x2="8" y2="13" />
+                  <line x1="16" y1="17" x2="8" y2="17" />
+                </svg>
+              )}
+              <span className="font-mono text-xs font-medium text-ink-2">{isHtml ? 'HTML' : 'PDF'}</span>
             </div>
           ) : previewUrl ? (
             <img
@@ -276,7 +281,7 @@ export default function UploadZone({ onSuccess }: UploadZoneProps) {
       <input
         ref={browseRef}
         type="file"
-        accept=".pdf,.jpg,.jpeg,.png,.webp"
+        accept=".pdf,.jpg,.jpeg,.png,.webp,.html"
         className="sr-only"
         onChange={e => {
           const f = e.target.files?.[0]
@@ -308,7 +313,7 @@ export default function UploadZone({ onSuccess }: UploadZoneProps) {
         {isDragActive ? 'Drop it here' : 'Drop your receipt here'}
       </h2>
       <p className="relative z-10 mb-8 text-sm text-ink-2">
-        PDF, JPG, PNG or WEBP &bull; max 10 MB
+        PDF, JPG, PNG, WEBP or HTML &bull; max 10 MB
       </p>
 
       {/* CTAs */}
