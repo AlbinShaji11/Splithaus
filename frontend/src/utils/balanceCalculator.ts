@@ -42,6 +42,10 @@ function calcSingleItemShares(
         result[personId] = round(price * (ratio / totalRatio))
       })
     }
+  } else if (split.mode === 'custom' && split.customAmounts) {
+    Object.entries(split.customAmounts).forEach(([id, amount]) => {
+      result[id] = round(amount)
+    })
   }
   return result
 }
@@ -170,6 +174,10 @@ export function calculatePersonTotals(
           totals[personId] = round(totals[personId] + round(price * (ratio / totalRatio)))
         })
       }
+    } else if (split.mode === 'custom' && split.customAmounts) {
+      Object.entries(split.customAmounts).forEach(([id, amount]) => {
+        totals[id] = round(totals[id] + amount)
+      })
     }
   })
 

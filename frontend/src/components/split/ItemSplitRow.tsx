@@ -2,8 +2,12 @@ import { useState } from 'react'
 import type { ItemSplit, Person, ReceiptItem, SplitMode } from '@/types'
 import SplitModePanel from './SplitModePanel'
 
+function round(n: number): number {
+  return Math.round(n * 100) / 100
+}
+
 function togglePerson(personId: string, split: ItemSplit, people: Person[]): ItemSplit {
-  if (split.mode === 'proportion') return split
+  if (split.mode === 'proportion' || split.mode === 'custom') return split
   const allIds = people.map(p => p.id)
   let assigned: string[]
 
@@ -21,7 +25,7 @@ function togglePerson(personId: string, split: ItemSplit, people: Person[]): Ite
     assigned.length === allIds.length ? 'everyone'
     : assigned.length === 1 ? 'individual'
     : 'subset'
-  return { ...split, mode, assignedTo: assigned, proportions: undefined }
+  return { ...split, mode, assignedTo: assigned, proportions: undefined, customAmounts: undefined }
 }
 
 function isAssigned(personId: string, split: ItemSplit): boolean {
@@ -40,36 +44,58 @@ export default function ItemSplitRow({ item, itemIndex, people, split, onSplitCh
   const [expanded, setExpanded] = useState(false)
   const isDiscount = item.type === 'discount'
 
+  const isCustomIncomplete = split.mode === 'custom' && (() => {
+    const totalPrice = Math.abs(item.price)
+    const assignedTotal = round(
+      Object.values(split.customAmounts ?? {}).reduce((s, v) => s + Math.abs(v), 0)
+    )
+    return Math.abs(totalPrice - assignedTotal) >= 0.005
+  })()
+
+  function handleRowClick() {
+    if (expanded && isCustomIncomplete) return
+    setExpanded(e => !e)
+  }
+
   return (
     <div className="border-b border-rule last:border-b-0">
-      {/* Entire row is clickable — FIX 5 */}
       <div
         className="flex cursor-pointer items-center gap-2 px-4 py-3 transition hover:bg-paper"
-        onClick={() => setExpanded(e => !e)}
+        onClick={handleRowClick}
         role="button"
         aria-expanded={expanded}
       >
-        <div className="flex shrink-0 gap-1" onClick={e => e.stopPropagation()}>
-          {people.map(person => (
-            <button
-              key={person.id}
-              title={person.name}
-              onClick={() => onSplitChange(itemIndex, togglePerson(person.id, split, people))}
-              className="flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold text-white transition-opacity focus:outline-none"
-              style={{ background: person.color, opacity: isAssigned(person.id, split) ? 1 : 0.25 }}
-            >
-              {person.initial}
-            </button>
-          ))}
-        </div>
-
-        <span className="flex-1 truncate text-sm text-ink" title={item.name}>{item.name}</span>
+        {/* CHANGE 4: name first, then avatars, then price, then chevron */}
+        <span className="min-w-0 flex-1 truncate text-sm text-ink" title={item.name}>
+          {item.name}
+        </span>
 
         {isDiscount && (
           <span className="shrink-0 rounded-xs bg-disc/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase text-disc">
             DISC
           </span>
         )}
+
+        {/* Avatar group — right of name, overlapping rings */}
+        <div className="flex shrink-0" onClick={e => e.stopPropagation()}>
+          {people.map((person, idx) => (
+            <button
+              key={person.id}
+              title={person.name}
+              onClick={() => onSplitChange(itemIndex, togglePerson(person.id, split, people))}
+              className="flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold text-white ring-1 ring-card transition-opacity focus:outline-none"
+              style={{
+                background: person.color,
+                opacity: isAssigned(person.id, split) ? 1 : 0.25,
+                marginLeft: idx > 0 ? '-4px' : undefined,
+                zIndex: idx,
+                position: 'relative',
+              }}
+            >
+              {person.initial}
+            </button>
+          ))}
+        </div>
 
         <span className={['shrink-0 font-mono text-sm font-medium tabular-nums', isDiscount ? 'text-disc' : 'text-ink'].join(' ')}>
           {isDiscount && item.price < 0 ? '-' : ''}${Math.abs(item.price).toFixed(2)}
@@ -78,7 +104,7 @@ export default function ItemSplitRow({ item, itemIndex, people, split, onSplitCh
         <svg
           width="16" height="16" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" strokeWidth="2"
-          className="shrink-0 text-ink-3 transition-transform"
+          className={['shrink-0 text-ink-3 transition-transform', isCustomIncomplete ? 'text-amber-500' : ''].join(' ')}
           style={{ transform: expanded ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }}
           aria-hidden="true"
         >

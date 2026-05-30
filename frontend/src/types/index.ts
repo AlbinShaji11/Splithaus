@@ -1,4 +1,4 @@
-export type SplitMode = 'everyone' | 'individual' | 'subset' | 'proportion'
+export type SplitMode = 'everyone' | 'individual' | 'subset' | 'proportion' | 'custom'
 
 export interface Person {
   id: string
@@ -17,6 +17,7 @@ export interface ItemSplit {
   mode: SplitMode
   assignedTo: string[]
   proportions?: ProportionShare[]
+  customAmounts?: Record<string, number>
 }
 
 export interface ReceiptItem {
