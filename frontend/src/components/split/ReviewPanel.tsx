@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { ReceiptItem, ScannedReceipt } from '@/types'
+import ReceiptPreviewPanel from './ReceiptPreviewPanel'
 
 interface ItemFormProps {
   mode: 'add' | 'edit'
@@ -117,9 +118,11 @@ interface Props {
   items: ReceiptItem[]
   onItemsChange: (items: ReceiptItem[]) => void
   onStartSplitting: () => void
+  uploadedFile?: File | null
+  previewText?: string | null
 }
 
-export default function ReviewPanel({ receipt, items, onItemsChange, onStartSplitting }: Props) {
+export default function ReviewPanel({ receipt, items, onItemsChange, onStartSplitting, uploadedFile, previewText }: Props) {
   const [editingItemIdx, setEditingItemIdx] = useState<number | null>(null)
   const [showAddForm, setShowAddForm] = useState(false)
 
@@ -152,9 +155,25 @@ export default function ReviewPanel({ receipt, items, onItemsChange, onStartSpli
     setEditingItemIdx(null)
   }
 
+  const hasPreview = !!(uploadedFile || previewText)
+  const fileName = uploadedFile?.name ?? ''
+
   return (
-    <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.45fr_1fr] lg:items-start">
+    <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.35fr_1fr] lg:items-start">
       <div>
+        {/* Mobile-only: collapsible preview above the items list */}
+        {hasPreview && (
+          <div className="mb-4 lg:hidden">
+            <ReceiptPreviewPanel
+              file={uploadedFile ?? null}
+              previewText={previewText ?? null}
+              store={receipt.store}
+              fileName={fileName}
+              collapsible
+            />
+          </div>
+        )}
+
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <span className="font-display text-lg font-semibold text-ink">{receipt.store}</span>
           {receipt.warnings.map((w, i) => (
@@ -209,7 +228,19 @@ export default function ReviewPanel({ receipt, items, onItemsChange, onStartSpli
         </div>
       </div>
 
-      <div className="lg:sticky lg:top-[calc(3.5rem+1.25rem)]">
+      <div className="lg:sticky lg:top-[calc(3.5rem+1.25rem)] flex flex-col gap-4">
+        {/* Desktop-only: preview panel above summary */}
+        {hasPreview && (
+          <div className="hidden lg:block">
+            <ReceiptPreviewPanel
+              file={uploadedFile ?? null}
+              previewText={previewText ?? null}
+              store={receipt.store}
+              fileName={fileName}
+            />
+          </div>
+        )}
+
         <div className="rounded-md border border-rule bg-card p-5 shadow-card">
           <h3 className="mb-4 font-display text-base font-semibold text-ink">Summary</h3>
           <div className="space-y-2 text-sm">

@@ -5,7 +5,23 @@ import type { ScannedReceipt } from '../../types'
 import { scanReceipt } from '../../services/api'
 
 interface UploadZoneProps {
-  onSuccess: (receipt: ScannedReceipt) => void
+  onSuccess: (receipt: ScannedReceipt, file: File, previewText?: string) => void
+}
+
+async function extractCostcoText(file: File): Promise<string> {
+  try {
+    const html = await file.text()
+    const parser = new DOMParser()
+    const doc = parser.parseFromString(html, 'text/html')
+    const modal = doc.querySelector('mat-dialog-container')
+    const container = modal ?? doc.body
+    const raw = (container as HTMLElement).innerText ?? container.textContent ?? ''
+    const marker = 'TAX INVOICE ($)'
+    const idx = raw.indexOf(marker)
+    return idx !== -1 ? raw.slice(idx) : raw
+  } catch {
+    return 'Could not extract receipt preview.'
+  }
 }
 
 type ZoneState = 'idle' | 'previewing' | 'uploading' | 'error'
@@ -98,8 +114,11 @@ export default function UploadZone({ onSuccess }: UploadZoneProps) {
     startCycle()
     try {
       let toSend: File = raw
+      let previewText: string | undefined
       const isHtmlFile = raw.type === 'text/html' || raw.name.toLowerCase().endsWith('.html')
-      if (raw.type !== 'application/pdf' && !isHtmlFile) {
+      if (isHtmlFile) {
+        previewText = await extractCostcoText(raw)
+      } else if (raw.type !== 'application/pdf') {
         toSend = await imageCompression(raw, {
           maxSizeMB: 2,
           maxWidthOrHeight: 1800,
@@ -109,7 +128,7 @@ export default function UploadZone({ onSuccess }: UploadZoneProps) {
       const receipt = await scanReceipt(toSend)
       stopCycle()
       reset()
-      onSuccess(receipt)
+      onSuccess(receipt, raw, previewText)
     } catch (err) {
       stopCycle()
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import type { ItemSplit, Person, ReceiptItem, ScannedReceipt, Settlement } from '@/types'
 import { calculatePersonTotals, calculateSettlements } from '@/utils/balanceCalculator'
@@ -61,6 +61,8 @@ export default function SplitTool() {
   const [paidById, setPaidById] = useState<string | null>(saved?.paidById ?? null)
   const [settlements, setSettlements] = useState<Settlement[]>([])
   const [savedPeople, setSavedPeople] = useLocalStorage<Person[]>('splithaus_people', [])
+  const uploadedFileRef = useRef<File | null>(null)
+  const [previewText, setPreviewText] = useState<string | null>(null)
 
   const [dark, setDark] = useState(() => {
     try { return localStorage.getItem('sh-theme') === 'dark' } catch { return false }
@@ -83,7 +85,11 @@ export default function SplitTool() {
     try { localStorage.setItem('sh-theme', next ? 'dark' : 'light') } catch { /* ignore */ }
   }
 
-  function handleScanSuccess(data: ScannedReceipt) { setReceipt(data); setItems(data.items); setPageState('review') }
+  function handleScanSuccess(data: ScannedReceipt, file: File, previewTextStr?: string) {
+    uploadedFileRef.current = file
+    setPreviewText(previewTextStr ?? null)
+    setReceipt(data); setItems(data.items); setPageState('review')
+  }
 
   function handlePeopleConfirm(newPeople: Person[]) {
     setPeople(newPeople); setSavedPeople(newPeople)
@@ -98,6 +104,8 @@ export default function SplitTool() {
 
   function handleReset() {
     try { localStorage.removeItem('splithaus_current_session') } catch { /* ignore */ }
+    uploadedFileRef.current = null
+    setPreviewText(null)
     setReceipt(null); setItems([]); setPeople([]); setSplits([])
     setPaidById(null); setSettlements([]); setPageState('upload')
   }
@@ -165,7 +173,9 @@ export default function SplitTool() {
               <p className="mt-1 text-sm text-ink-2">Check everything looks right, then start splitting.</p>
             </div>
             <ReviewPanel receipt={receipt} items={items} onItemsChange={setItems}
-              onStartSplitting={() => setPageState('people-setup')} />
+              onStartSplitting={() => setPageState('people-setup')}
+              uploadedFile={uploadedFileRef.current}
+              previewText={previewText} />
             {pageState === 'people-setup' && (
               <PeopleSetupModal onConfirm={handlePeopleConfirm}
                 onClose={() => setPageState('review')}
