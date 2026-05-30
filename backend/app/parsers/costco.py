@@ -199,14 +199,28 @@ def parse_costco(text: str) -> list:
 
 
 def extract_costco_totals(text: str) -> dict:
-    """Extract receipt total from Costco HTML receipt text."""
+    """Extract receipt total from Costco HTML receipt text.
+
+    Prefers the DEBIT MASTERCARD/VISA/CARD line (actual amount charged)
+    over the **** TOTAL line, because the charged amount matches what
+    users paid and avoids GST-calculation mismatches.
+    """
     total = 0.0
     gst = 0.0
     lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
 
     for j, line in enumerate(lines):
-        # ****  TOTAL line - amount may be on the same line or the next
-        if re.match(r'\*{4}', line):
+        # DEBIT line = actual amount charged to card (most accurate comparison target)
+        m_debit = re.search(
+            r'DEBIT\s+(?:MASTERCARD|VISA|EFTPOS|CARD)\s+([\d,]+\.\d{2})',
+            line, re.IGNORECASE,
+        )
+        if m_debit:
+            total = float(m_debit.group(1).replace(',', ''))
+            continue
+
+        # **** TOTAL line as fallback when no DEBIT line is present
+        if re.match(r'\*{4}', line) and total == 0.0:
             m = re.search(r'[\d,]+\.\d{2}', line)
             if m:
                 total = float(m.group().replace(',', ''))

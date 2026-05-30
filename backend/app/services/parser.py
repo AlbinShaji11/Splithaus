@@ -202,7 +202,7 @@ def _build_response(
 ) -> ReceiptScanResponse:
     items_sum = round(sum(it['price'] for it in items_raw), 2)
     warnings: list[str] = []
-    if totals['total'] > 0 and abs(items_sum - totals['total']) > 0.10:
+    if totals['total'] > 0 and abs(items_sum - totals['total']) > 0.05:
         diff = abs(items_sum - totals['total'])
         warnings.append(f"Totals differ by ${diff:.2f}")
     return ReceiptScanResponse(
@@ -260,6 +260,19 @@ def parse_html(file_bytes: bytes) -> ReceiptScanResponse:
     text = container.get_text(separator='\n', strip=True)
     if not text.strip():
         raise HTTPException(status_code=400, detail='No readable text found in HTML file.')
+
+    # Strip navigation/header text — receipt content always begins at TAX INVOICE ($)
+    marker = 'TAX INVOICE ($)'
+    idx = text.find(marker)
+    if idx == -1:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                'Could not find receipt content in this file. '
+                'Make sure you saved the page with the receipt modal open and visible.'
+            ),
+        )
+    text = text[idx:]
 
     items_raw = parse_receipt_html(text)
     totals = extract_costco_totals(text)
