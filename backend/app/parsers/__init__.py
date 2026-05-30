@@ -1,10 +1,10 @@
-# coding: ascii
+# coding: utf-8
 """
 Receipt parser router.
 
 Supported stores:
-  - Woolworths (PDF/image — woolworths, woolworths.com.au)
-  - Costco     (HTML    — costco, costco.com.au, costco wholesale)
+  - Woolworths (PDF/image - woolworths, woolworths.com.au)
+  - Costco     (HTML     - costco, costco.com.au, costco wholesale)
 
 Stubs for future stores (add parser modules and wire them in below):
   - Coles  (coles, coles.com.au, flybuys)
@@ -58,13 +58,13 @@ def parse_receipt(lines: list) -> list:
 
     if store == 'costco':
         raise ValueError(
-            "Costco receipts must be uploaded as HTML files (File → Save As from costco.com.au)."
+            "Costco receipts must be uploaded as HTML files (File -> Save As from costco.com.au)."
         )
 
     if store is not None:
         raise ValueError(f"{store.title()} parsing not yet supported")
 
-    raise ValueError("Unrecognised store — please use a Woolworths or Costco receipt")
+    raise ValueError("Unrecognised store - please use a Woolworths or Costco receipt")
 
 
 def parse_receipt_html(text: str) -> list:

@@ -1,4 +1,4 @@
-# coding: ascii
+# coding: utf-8
 """
 Costco receipt parser.
 
@@ -174,7 +174,7 @@ def parse_costco(text: str) -> list:
                 is_negative = True
                 i += 1
 
-            # GST code (0 or 1) — skip
+            # GST code (0 or 1) - skip
             if i < n and _GST_CODE_RE.match(raw[i]):
                 i += 1
 
@@ -191,7 +191,7 @@ def parse_costco(text: str) -> list:
             name_buf = []
             continue
 
-        # Not a stop or item code — accumulate as potential name content
+        # Not a stop or item code - accumulate as potential name content
         name_buf.append(line)
         i += 1
 
@@ -205,7 +205,7 @@ def extract_costco_totals(text: str) -> dict:
     lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
 
     for j, line in enumerate(lines):
-        # ****  TOTAL line — amount may be on the same line or the next
+        # ****  TOTAL line - amount may be on the same line or the next
         if re.match(r'\*{4}', line):
             m = re.search(r'[\d,]+\.\d{2}', line)
             if m:
