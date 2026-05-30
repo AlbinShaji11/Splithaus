@@ -27,6 +27,10 @@ function calcShares(price: number, split: ItemSplit, people: Person[]): Record<s
         result[personId] = round(price * (ratio / total))
       })
     }
+  } else if (split.mode === 'custom' && split.customAmounts) {
+    Object.entries(split.customAmounts).forEach(([id, amount]) => {
+      result[id] = round(amount)
+    })
   }
   return result
 }
@@ -36,6 +40,7 @@ const MODES: { mode: SplitMode; label: string }[] = [
   { mode: 'individual', label: 'One person' },
   { mode: 'subset', label: 'Multiple' },
   { mode: 'proportion', label: 'Proportion' },
+  { mode: 'custom', label: 'Custom $' },
 ]
 
 interface Props {
@@ -49,13 +54,18 @@ interface Props {
 export default function SplitModePanel({ item, itemIndex, people, split, onSplitChange }: Props) {
   const shares = calcShares(item.price, split, people)
   const allIds = people.map(p => p.id)
+  const isDiscount = item.price < 0
 
   function setMode(mode: SplitMode) {
     const proportions: ProportionShare[] = people.map(p => ({ personId: p.id, ratio: 1 }))
     const assignedTo = mode === 'individual' ? [allIds[0]] : allIds
+    const customAmounts: Record<string, number> = mode === 'custom'
+      ? Object.fromEntries(people.map(p => [p.id, 0]))
+      : {}
     onSplitChange(itemIndex, {
       itemIndex, mode, assignedTo,
       proportions: mode === 'proportion' ? proportions : undefined,
+      customAmounts: mode === 'custom' ? customAmounts : undefined,
     })
   }
 
@@ -73,6 +83,20 @@ export default function SplitModePanel({ item, itemIndex, people, split, onSplit
       proportions: base.map(p => p.personId === personId ? { ...p, ratio } : p),
     })
   }
+
+  function setCustomAmount(personId: string, inputValue: number) {
+    const stored = isDiscount ? -Math.abs(inputValue) : Math.abs(inputValue)
+    const base = split.customAmounts ?? Object.fromEntries(people.map(p => [p.id, 0]))
+    onSplitChange(itemIndex, { ...split, customAmounts: { ...base, [personId]: stored } })
+  }
+
+  const totalPrice = Math.abs(item.price)
+  const assignedTotal = round(
+    Object.values(split.customAmounts ?? {}).reduce((s, v) => s + Math.abs(v), 0)
+  )
+  const remaining = round(totalPrice - assignedTotal)
+  const isFullyAssigned = Math.abs(remaining) < 0.005
+  const isOver = remaining < -0.005
 
   return (
     <div className="border-t border-rule bg-paper px-4 py-3 space-y-3">
@@ -98,7 +122,7 @@ export default function SplitModePanel({ item, itemIndex, people, split, onSplit
           {people.map(p => (
             <span key={p.id} className="flex items-center gap-1 font-mono text-xs text-ink-3">
               <span style={{ color: p.color }}>{p.initial}</span>
-              ${(shares[p.id] ?? 0).toFixed(2)}
+              {(shares[p.id] ?? 0) < 0 ? '-' : ''}${Math.abs(shares[p.id] ?? 0).toFixed(2)}
             </span>
           ))}
         </div>
@@ -129,7 +153,7 @@ export default function SplitModePanel({ item, itemIndex, people, split, onSplit
                   {person.initial}
                 </span>
                 {person.name}
-                {isOn && <span className="font-mono">${(shares[person.id] ?? 0).toFixed(2)}</span>}
+                {isOn && <span className="font-mono">{(shares[person.id] ?? 0) < 0 ? '-' : ''}${Math.abs(shares[person.id] ?? 0).toFixed(2)}</span>}
               </button>
             )
           })}
@@ -164,6 +188,65 @@ export default function SplitModePanel({ item, itemIndex, people, split, onSplit
               </div>
             )
           })}
+        </div>
+      )}
+
+      {split.mode === 'custom' && (
+        <div className="space-y-2">
+          {isDiscount && (
+            <p className="text-xs text-ink-2">
+              Discount total: ${totalPrice.toFixed(2)} — assign each person's share below.
+            </p>
+          )}
+          {people.map(person => {
+            const stored = split.customAmounts?.[person.id] ?? 0
+            const displayValue = Math.abs(stored) > 0 ? Math.abs(stored).toFixed(2) : ''
+            return (
+              <div key={person.id} className="flex items-center gap-2">
+                <span
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+                  style={{ background: person.color }}
+                >
+                  {person.initial}
+                </span>
+                <span className="w-20 min-w-0 truncate text-sm text-ink">{person.name}</span>
+                <span className="text-sm text-ink-3">$</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={displayValue}
+                  onChange={e => {
+                    const v = parseFloat(e.target.value)
+                    setCustomAmount(person.id, isNaN(v) ? 0 : Math.max(0, v))
+                  }}
+                  className="w-24 rounded-xs border border-rule bg-transparent px-2 py-1 font-mono text-sm text-ink outline-none focus:border-accent"
+                />
+              </div>
+            )
+          })}
+
+          <div className={[
+            'rounded-xs px-3 py-2 text-xs font-mono font-medium',
+            isFullyAssigned
+              ? 'bg-green-50 text-green-700'
+              : isOver
+              ? 'bg-red-50 text-red-700'
+              : 'bg-ink/5 text-ink-2',
+          ].join(' ')}>
+            {isFullyAssigned
+              ? `✓ Fully assigned ($${totalPrice.toFixed(2)})`
+              : isOver
+              ? `Over by $${Math.abs(remaining).toFixed(2)} — reduce someone's amount`
+              : `$${remaining.toFixed(2)} remaining to assign`}
+          </div>
+
+          {!isFullyAssigned && (
+            <p className="text-xs text-red-500">
+              All ${totalPrice.toFixed(2)} must be assigned before collapsing this item.
+            </p>
+          )}
         </div>
       )}
     </div>

@@ -41,14 +41,12 @@
 #print-content { display: none; }
 
 @media print {
+  @page { margin: 1.5cm; size: A4; }
   /* Hide everything in body */
   body > * { display: none !important; }
-  /* Show only the print portal (higher specificity wins) */
+  /* Show only the print portal — no fixed positioning so content flows across pages */
   #print-content {
     display: block !important;
-    position: fixed;
-    inset: 0;
-    padding: 2rem;
     background: white;
     color: black;
     font-family: system-ui, sans-serif;

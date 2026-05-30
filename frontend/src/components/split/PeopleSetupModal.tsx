@@ -70,20 +70,18 @@ export default function PeopleSetupModal({ onConfirm, onClose, savedPeople }: Pr
       <div className="relative z-10 w-full max-w-md rounded-t-xl bg-card p-6 shadow-lg sm:rounded-xl"
         onClick={e => e.stopPropagation()}>
         <h2 className="font-display text-xl font-semibold tracking-heading text-ink">Who's splitting this?</h2>
-        <p className="mt-1 text-sm text-ink-2">Quick-add or enter names below.</p>
+        <p className="mt-1 text-sm text-ink-2">Choose how many people are splitting.</p>
 
-        <div className="mt-4 flex gap-2">
-          {[2, 3, 4, 5].map(n => (
-            <button key={n} onClick={() => setCount(n)}
-              className={[
-                'h-9 w-9 rounded-xs text-sm font-semibold transition focus:outline-none',
-                people.length === n
-                  ? 'bg-accent text-white'
-                  : 'border border-rule-strong text-ink-2 hover:border-accent hover:text-accent',
-              ].join(' ')}>
-              {n}
-            </button>
-          ))}
+        <div className="mt-4">
+          <select
+            value={people.length}
+            onChange={e => setCount(parseInt(e.target.value))}
+            className="rounded-xs border border-rule bg-card px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+          >
+            {[2, 3, 4, 5, 6, 7, 8].map(n => (
+              <option key={n} value={n}>{n} people</option>
+            ))}
+          </select>
         </div>
 
         <div className="mt-4 space-y-2">
