@@ -1,7 +1,51 @@
+import { useState, useEffect } from 'react'
 import type { ItemSplit, Person, ProportionShare, ReceiptItem, SplitMode } from '@/types'
 
 function round(n: number): number {
   return Math.round(n * 100) / 100
+}
+
+interface CustomAmountInputProps {
+  value: number
+  onChange: (v: number) => void
+  className?: string
+  placeholder?: string
+}
+
+function CustomAmountInput({ value, onChange, className, placeholder }: CustomAmountInputProps) {
+  const [raw, setRaw] = useState(() => value > 0 ? value.toFixed(2) : '')
+
+  useEffect(() => {
+    setRaw(value > 0 ? value.toFixed(2) : '')
+  }, [value])
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    const nav = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Home', 'End']
+    if (nav.includes(e.key) || /^\d$/.test(e.key)) return
+    if (e.key === '.' && !e.currentTarget.value.includes('.')) return
+    e.preventDefault()
+  }
+
+  function handleBlur() {
+    const v = parseFloat(raw)
+    const num = isNaN(v) || v < 0 ? 0 : v
+    setRaw(num === 0 ? '0.00' : num.toFixed(2))
+    onChange(num)
+  }
+
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      value={raw}
+      placeholder={placeholder}
+      onChange={e => setRaw(e.target.value)}
+      onKeyDown={handleKeyDown}
+      onFocus={e => e.target.select()}
+      onBlur={handleBlur}
+      className={className}
+    />
+  )
 }
 
 function calcShares(price: number, split: ItemSplit, people: Person[]): Record<string, number> {
@@ -199,8 +243,7 @@ export default function SplitModePanel({ item, itemIndex, people, split, onSplit
             </p>
           )}
           {people.map(person => {
-            const stored = split.customAmounts?.[person.id] ?? 0
-            const displayValue = Math.abs(stored) > 0 ? Math.abs(stored).toFixed(2) : ''
+            const stored = Math.abs(split.customAmounts?.[person.id] ?? 0)
             return (
               <div key={person.id} className="flex items-center gap-2">
                 <span
@@ -211,16 +254,10 @@ export default function SplitModePanel({ item, itemIndex, people, split, onSplit
                 </span>
                 <span className="w-20 min-w-0 truncate text-sm text-ink">{person.name}</span>
                 <span className="text-sm text-ink-3">$</span>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
+                <CustomAmountInput
+                  value={stored}
+                  onChange={v => setCustomAmount(person.id, v)}
                   placeholder="0.00"
-                  value={displayValue}
-                  onChange={e => {
-                    const v = parseFloat(e.target.value)
-                    setCustomAmount(person.id, isNaN(v) ? 0 : Math.max(0, v))
-                  }}
                   className="w-24 rounded-xs border border-rule bg-transparent px-2 py-1 font-mono text-sm text-ink outline-none focus:border-accent"
                 />
               </div>

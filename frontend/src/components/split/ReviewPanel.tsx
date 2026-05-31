@@ -12,6 +12,18 @@ interface ItemFormProps {
   hasBorder?: boolean
 }
 
+function filterPriceKey(e: React.KeyboardEvent<HTMLInputElement>) {
+  const nav = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Home', 'End', 'Enter']
+  if (nav.includes(e.key) || /^\d$/.test(e.key)) return
+  if (e.key === '.' && !e.currentTarget.value.includes('.')) return
+  e.preventDefault()
+}
+
+function formatPriceOnBlur(raw: string): string {
+  const v = parseFloat(raw)
+  return isNaN(v) ? '0.00' : v.toFixed(2)
+}
+
 function ItemForm({
   mode, initialName = '', initialPrice = '', initialType = 'item',
   onSubmit, onCancel, hasBorder,
@@ -48,9 +60,12 @@ function ItemForm({
       <div className="flex gap-2">
         <div className="flex-1">
           <input
-            type="number" placeholder="0.00" step="0.01" min="0.01"
-            value={price} onChange={e => setPrice(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && submit()}
+            type="text" inputMode="decimal" placeholder="0.00"
+            value={price}
+            onChange={e => setPrice(e.target.value)}
+            onKeyDown={e => { filterPriceKey(e); if (e.key === 'Enter') submit() }}
+            onFocus={e => e.target.select()}
+            onBlur={e => setPrice(formatPriceOnBlur(e.target.value))}
             className="w-full rounded-xs border border-rule bg-transparent px-3 py-2 font-mono text-sm text-ink placeholder:text-ink-3 outline-none focus:border-accent"
           />
           {priceErr && <p className="mt-1 text-xs text-red-500">{priceErr}</p>}
