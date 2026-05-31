@@ -76,7 +76,7 @@ export default function ItemSplitRow({ item, itemIndex, people, split, onSplitCh
         ].join(' ')}
         style={{
           display: 'grid',
-          gridTemplateColumns: '1fr auto 64px 24px',
+          gridTemplateColumns: 'minmax(200px, 1fr) auto 64px 24px',
           columnGap: '8px',
           alignItems: 'center',
         }}

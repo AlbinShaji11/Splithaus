@@ -19,7 +19,7 @@ export default function AssigningPanel({
   canCalculate, onSplitChange, onPaidByChange, onCalculate,
 }: Props) {
   return (
-    <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.45fr_1fr] lg:items-start">
+    <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_360px] lg:items-start">
       <div className="overflow-hidden rounded-md border border-rule bg-card shadow-card">
         {items.map((item, idx) => (
           <ItemSplitRow key={idx} item={item} itemIndex={idx} people={people}

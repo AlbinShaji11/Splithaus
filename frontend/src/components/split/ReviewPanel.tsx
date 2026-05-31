@@ -209,7 +209,7 @@ export default function ReviewPanel({ receipt, items, onItemsChange, onStartSpli
   const fileName = uploadedFile?.name ?? ''
 
   return (
-    <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.35fr_1fr] lg:items-start">
+    <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_380px] lg:items-start">
       <div>
         {/* Mobile-only: collapsible preview above the items list */}
         {hasPreview && (
