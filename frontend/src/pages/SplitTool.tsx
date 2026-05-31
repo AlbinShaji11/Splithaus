@@ -156,7 +156,7 @@ export default function SplitTool() {
 
       <div className={[
         'mx-auto w-full flex-1 px-4 py-8 sm:px-6',
-        pageState === 'assigning' ? 'max-w-[1600px]' : 'max-w-7xl',
+        pageState === 'assigning' ? 'max-w-[1400px]' : 'max-w-7xl',
       ].join(' ')}>
         {(pageState === 'upload' || pageState === 'scanning') && (
           <>
