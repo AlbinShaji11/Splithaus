@@ -24,6 +24,7 @@ export interface ReceiptItem {
   name: string
   price: number
   type: 'item' | 'discount'
+  linkedItemIndex?: number | null  // Costco discounts: index of matched item
 }
 
 export interface ScannedReceipt {

@@ -6,6 +6,7 @@ class ReceiptItem(BaseModel):
     name: str
     price: float
     type: str  # "item" or "discount"
+    linked_item_index: int | None = None  # Costco discounts: index of matched item in the list
 
 
 class ReceiptScanResponse(BaseModel):

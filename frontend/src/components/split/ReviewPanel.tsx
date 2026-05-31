@@ -96,15 +96,45 @@ function ItemForm({
 
 interface ItemRowProps {
   item: ReceiptItem
+  itemIndex: number
+  allItems: ReceiptItem[]
+  storeName: string
   onEditOpen: () => void
   onRemove: () => void
+  onLinkChange: (linkedIdx: number | null) => void
 }
 
-function ItemRow({ item, onEditOpen, onRemove }: ItemRowProps) {
+function ItemRow({ item, itemIndex: _itemIndex, allItems, storeName, onEditOpen, onRemove, onLinkChange }: ItemRowProps) {
   const isDiscount = item.type === 'discount'
+  const isCostcoDiscount = isDiscount && /costco/i.test(storeName)
+  const nonDiscountItems = allItems.map((it, i) => ({ it, i })).filter(({ it }) => it.type === 'item')
+  const linkedName = item.linkedItemIndex != null ? allItems[item.linkedItemIndex]?.name : undefined
+
   return (
-    <div className="group grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 border-b border-rule px-4 py-3 last:border-b-0">
-      <div className="min-w-0 truncate text-sm text-ink" title={item.name}>{item.name}</div>
+    <div className="group border-b border-rule last:border-b-0">
+      <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 px-4 py-3">
+      <div className="min-w-0">
+        <div className="truncate text-sm text-ink" title={item.name}>{item.name}</div>
+        {isCostcoDiscount && (
+          <div className="mt-0.5 flex items-center gap-1 text-[11px] text-ink-3">
+            <span>↳</span>
+            <select
+              value={item.linkedItemIndex ?? ''}
+              onChange={e => onLinkChange(e.target.value === '' ? null : parseInt(e.target.value))}
+              onClick={e => e.stopPropagation()}
+              className="max-w-[200px] truncate rounded-xs border border-rule bg-transparent px-1 py-0.5 text-[11px] text-ink-2 outline-none focus:border-accent"
+            >
+              <option value="">Split equally</option>
+              {nonDiscountItems.map(({ it, i }) => (
+                <option key={i} value={i}>{it.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
+        {isDiscount && !isCostcoDiscount && linkedName && (
+          <div className="mt-0.5 text-[11px] text-ink-3">↳ {linkedName}</div>
+        )}
+      </div>
       {isDiscount
         ? <span className="shrink-0 rounded-xs bg-disc/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase text-disc">DISC</span>
         : <span />}
@@ -124,6 +154,7 @@ function ItemRow({ item, onEditOpen, onRemove }: ItemRowProps) {
           <path d="M6 6l12 12M18 6L6 18" />
         </svg>
       </button>
+      </div>
     </div>
   )
 }
@@ -151,8 +182,12 @@ export default function ReviewPanel({ receipt, items, onItemsChange, onStartSpli
   }
 
   function handleEditSave(idx: number, name: string, price: number, type: 'item' | 'discount') {
-    onItemsChange(items.map((it, i) => i === idx ? { name, price, type } : it))
+    onItemsChange(items.map((it, i) => i === idx ? { ...it, name, price, type } : it))
     setEditingItemIdx(null)
+  }
+
+  function handleLinkChange(idx: number, linkedIdx: number | null) {
+    onItemsChange(items.map((it, i) => i === idx ? { ...it, linkedItemIndex: linkedIdx } : it))
   }
 
   function remove(idx: number) {
@@ -161,7 +196,7 @@ export default function ReviewPanel({ receipt, items, onItemsChange, onStartSpli
   }
 
   function handleAdd(name: string, price: number, type: 'item' | 'discount') {
-    onItemsChange([...items, { name, price, type }])
+    onItemsChange([...items, { name, price, type, linkedItemIndex: null }])
     setShowAddForm(false)
   }
 
@@ -213,9 +248,12 @@ export default function ReviewPanel({ receipt, items, onItemsChange, onStartSpli
                 />
               </div>
             ) : (
-              <ItemRow key={idx} item={item}
+              <ItemRow key={idx} item={item} itemIndex={idx}
+                allItems={items}
+                storeName={receipt.store}
                 onEditOpen={() => handleEditOpen(idx)}
                 onRemove={() => remove(idx)}
+                onLinkChange={linkedIdx => handleLinkChange(idx, linkedIdx)}
               />
             )
           )}

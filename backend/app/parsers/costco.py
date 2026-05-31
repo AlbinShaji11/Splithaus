@@ -124,6 +124,31 @@ def _build_name(lines: list) -> tuple:
     return name, is_tpd
 
 
+def find_matching_item(discount_name: str, items: list) -> 'int | None':
+    """
+    Find the most likely item that a Costco discount applies to, by word overlap.
+    Returns the index in `items` (non-discount items only), or None if no good match.
+    Requires at least 2 overlapping words of length > 2.
+    """
+    clean = re.sub(r'^Costco\s+Savings:\s*', '', discount_name, flags=re.IGNORECASE).upper()
+    discount_words = {w for w in clean.split() if len(w) > 2}
+    if not discount_words:
+        return None
+
+    best_score = 0
+    best_idx = None
+    for i in range(len(items) - 1, -1, -1):
+        if items[i].get('type') == 'discount':
+            continue
+        item_words = {w for w in items[i]['name'].upper().split() if len(w) > 2}
+        overlap = len(discount_words & item_words)
+        if overlap > best_score:
+            best_score = overlap
+            best_idx = i
+
+    return best_idx if best_score >= 2 else None
+
+
 def parse_costco(text: str) -> list:
     """
     Parse Costco receipt text into a list of item dicts.
@@ -187,7 +212,13 @@ def parse_costco(text: str) -> list:
                     item_type = 'discount' if (is_negative or is_tpd) else 'item'
                     if is_tpd:
                         name = 'Costco Savings: ' + name
-                    items.append({'name': name, 'price': final_price, 'type': item_type})
+                    linked_idx = find_matching_item(name, items) if item_type == 'discount' else None
+                    items.append({
+                        'name': name,
+                        'price': final_price,
+                        'type': item_type,
+                        'linked_item_index': linked_idx,
+                    })
 
             name_buf = []
             continue
