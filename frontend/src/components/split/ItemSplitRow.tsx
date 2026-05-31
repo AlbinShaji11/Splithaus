@@ -2,8 +2,10 @@ import { useState } from 'react'
 import type { ItemSplit, Person, ReceiptItem, SplitMode } from '@/types'
 import SplitModePanel from './SplitModePanel'
 
-const AVATAR_SIZE = 28   // px
-const AVATAR_GAP = 4     // px between avatars
+const AVATAR_SIZE = 28  // px
+const AVATAR_GAP = 3    // px between avatars
+const WRAP_AT = 7       // people count at which avatars wrap to two rows
+const ROW_SIZE = 8      // max avatars per row in two-row mode
 
 function round(n: number): number {
   return Math.round(n * 100) / 100
@@ -60,17 +62,21 @@ export default function ItemSplitRow({ item, itemIndex, people, split, onSplitCh
     setExpanded(e => !e)
   }
 
-  // Avatar group width: each avatar is AVATAR_SIZE px, with AVATAR_GAP px between them
-  const avatarGroupWidth = people.length * AVATAR_SIZE + Math.max(0, people.length - 1) * AVATAR_GAP
+  const isTwoRow = people.length >= WRAP_AT
+  // Width fits min(n, ROW_SIZE) avatars in a row; avatars wrap naturally at container boundary
+  const avatarGroupWidth = Math.min(people.length, ROW_SIZE) * (AVATAR_SIZE + AVATAR_GAP) - AVATAR_GAP
 
   return (
     <div className="border-b border-rule last:border-b-0">
-      {/* CSS grid row: name (1fr) | avatars (fixed) | price (64px) | chevron (24px) */}
+      {/* CSS grid: name (1fr) | avatars (auto) | price (64px) | chevron (24px) */}
       <div
-        className="cursor-pointer px-4 py-3 transition hover:bg-paper"
+        className={[
+          'group cursor-pointer px-4 py-3 transition-all duration-150 ease-in-out',
+          expanded ? 'bg-paper' : 'hover:bg-paper',
+        ].join(' ')}
         style={{
           display: 'grid',
-          gridTemplateColumns: `1fr ${avatarGroupWidth}px 64px 24px`,
+          gridTemplateColumns: '1fr auto 64px 24px',
           columnGap: '8px',
           alignItems: 'center',
         }}
@@ -88,10 +94,17 @@ export default function ItemSplitRow({ item, itemIndex, people, split, onSplitCh
           <span className="truncate text-sm text-ink">{item.name}</span>
         </span>
 
-        {/* Avatar group — no overlap, uniform gap, individually tappable */}
+        {/* Avatar group — single row for ≤6, two-row wrap for 7–15 */}
         <div
-          className="flex items-center"
-          style={{ gap: `${AVATAR_GAP}px` }}
+          style={{
+            display: 'flex',
+            flexWrap: isTwoRow ? 'wrap' : 'nowrap',
+            gap: `${AVATAR_GAP}px`,
+            width: isTwoRow ? `${avatarGroupWidth}px` : undefined,
+            height: isTwoRow ? '64px' : undefined,
+            alignContent: isTwoRow ? 'flex-start' : undefined,
+            overflow: 'visible',
+          }}
           onClick={e => e.stopPropagation()}
         >
           {people.map(person => (
@@ -104,7 +117,7 @@ export default function ItemSplitRow({ item, itemIndex, people, split, onSplitCh
                 display: 'flex',
                 width: `${AVATAR_SIZE}px`,
                 height: `${AVATAR_SIZE}px`,
-                fontSize: '11px',
+                fontSize: '10px',
                 background: person.color,
                 opacity: isAssigned(person.id, split) ? 1 : 0.25,
               }}
@@ -122,12 +135,16 @@ export default function ItemSplitRow({ item, itemIndex, people, split, onSplitCh
           {isDiscount && item.price < 0 ? '-' : ''}${Math.abs(item.price).toFixed(2)}
         </span>
 
-        {/* Chevron */}
+        {/* Chevron — rotates on expand, translates right on row hover */}
         <svg
           width="16" height="16" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" strokeWidth="2"
-          className={['text-ink-3', isCustomIncomplete ? 'text-amber-500' : ''].join(' ')}
-          style={{ transform: expanded ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }}
+          className={[
+            'transition-all duration-150',
+            expanded ? 'rotate-180' : '',
+            'group-hover:translate-x-0.5',
+            isCustomIncomplete ? 'text-amber-500' : 'text-ink-3 group-hover:opacity-80',
+          ].join(' ')}
           aria-hidden="true"
         >
           <path d="M6 9l6 6 6-6" />

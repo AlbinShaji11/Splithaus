@@ -41,19 +41,29 @@ export default function PersonTotalBar({ people, totals, paidById, onPaidByChang
 
       <div className="border-t border-rule px-4 py-3">
         <p className="mb-2 text-xs font-medium text-ink-2">Who paid the receipt?</p>
-        <div className="flex flex-wrap gap-2">
+        {/* Two-row wrap for 7+ people: max 8 per row at 28px each with 3px gap */}
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '3px',
+            ...(people.length >= 7 ? {
+              width: `${Math.min(people.length, 8) * 31 - 3}px`,
+            } : {}),
+          }}
+        >
           {people.map(person => (
             <button
               key={person.id}
               onClick={() => onPaidByChange(person.id)}
               title={`${person.name} paid`}
               className={[
-                'flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold text-white transition focus:outline-none',
+                'flex items-center justify-center rounded-full text-[10px] font-bold text-white transition focus:outline-none',
                 paidById === person.id
-                  ? 'ring-2 ring-offset-2 ring-ink/30'
+                  ? 'ring-2 ring-offset-1 ring-ink/30'
                   : 'opacity-60 hover:opacity-100',
               ].join(' ')}
-              style={{ background: person.color }}
+              style={{ background: person.color, width: '28px', height: '28px', flexShrink: 0 }}
             >
               {person.initial}
             </button>

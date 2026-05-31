@@ -9,13 +9,19 @@ function getDefaultName(index: number): string {
   return DEFAULT_NAMES[index] ?? `Person ${index + 1}`
 }
 
-function getInitial(name: string): string {
-  return (name.trim()[0] ?? '?').toUpperCase()
+function getInitials(name: string): string {
+  const trimmed = name.trim()
+  if (!trimmed) return '?'
+  // "Person N" → "PN"
+  const personMatch = trimmed.match(/^Person\s+(\d+)$/i)
+  if (personMatch) return `P${personMatch[1]}`
+  if (trimmed.length === 1) return trimmed[0].toUpperCase()
+  return trimmed[0].toUpperCase() + trimmed[1].toLowerCase()
 }
 
 function makePerson(index: number, overrideName?: string): Person {
   const name = overrideName ?? getDefaultName(index)
-  return { id: nanoid(), name, color: PERSON_COLORS[index % PERSON_COLORS.length], initial: getInitial(name) }
+  return { id: nanoid(), name, color: PERSON_COLORS[index % PERSON_COLORS.length], initial: getInitials(name) }
 }
 
 interface Props {
@@ -31,7 +37,7 @@ export default function PeopleSetupModal({ onConfirm, onClose, savedPeople }: Pr
         ...p,
         id: nanoid(),
         color: PERSON_COLORS[i % PERSON_COLORS.length],
-        initial: getInitial(p.name),
+        initial: getInitials(p.name),
       }))
     }
     return Array.from({ length: 4 }, (_, i) => makePerson(i))
@@ -49,7 +55,7 @@ export default function PeopleSetupModal({ onConfirm, onClose, savedPeople }: Pr
 
   function updateName(id: string, name: string) {
     setPeople(prev =>
-      prev.map(p => p.id === id ? { ...p, name, initial: getInitial(name) } : p),
+      prev.map(p => p.id === id ? { ...p, name, initial: getInitials(name) } : p),
     )
   }
 
@@ -58,7 +64,7 @@ export default function PeopleSetupModal({ onConfirm, onClose, savedPeople }: Pr
   }
 
   function addPerson() {
-    if (people.length >= 8) return
+    if (people.length >= 15) return
     setPeople(prev => [...prev, makePerson(prev.length)])
   }
 
@@ -78,7 +84,7 @@ export default function PeopleSetupModal({ onConfirm, onClose, savedPeople }: Pr
             onChange={e => setCount(parseInt(e.target.value))}
             className="rounded-xs border border-rule bg-card px-3 py-2 text-sm text-ink outline-none focus:border-accent"
           >
-            {[2, 3, 4, 5, 6, 7, 8].map(n => (
+            {Array.from({ length: 14 }, (_, i) => i + 2).map(n => (
               <option key={n} value={n}>{n} people</option>
             ))}
           </select>
@@ -89,7 +95,7 @@ export default function PeopleSetupModal({ onConfirm, onClose, savedPeople }: Pr
             <div key={person.id} className="flex items-center gap-3">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
                 style={{ background: person.color }}>
-                {getInitial(person.name)}
+                {getInitials(person.name)}
               </div>
               <input value={person.name}
                 onChange={e => updateName(person.id, e.target.value)}
@@ -107,7 +113,7 @@ export default function PeopleSetupModal({ onConfirm, onClose, savedPeople }: Pr
           ))}
         </div>
 
-        {people.length < 8 && (
+        {people.length < 15 && (
           <button onClick={addPerson}
             className="mt-3 flex items-center gap-1.5 text-sm text-ink-2 transition hover:text-accent focus:outline-none">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">

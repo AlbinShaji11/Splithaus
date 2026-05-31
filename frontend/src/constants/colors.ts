@@ -7,4 +7,11 @@ export const PERSON_COLORS = [
   '#2A7A7A', // teal
   '#A03A5E', // rose
   '#4A4845', // charcoal
+  '#1E6B8C', // ocean blue
+  '#7C3D12', // brown
+  '#0E6655', // deep teal
+  '#8B3A8B', // plum
+  '#1D5FA3', // cobalt
+  '#7A5C1E', // dark gold
+  '#3D5A3E', // pine green
 ]
