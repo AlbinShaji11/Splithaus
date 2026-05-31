@@ -2,6 +2,10 @@ import { useState, useEffect } from 'react'
 import type { ItemSplit, Person, ProportionShare, ReceiptItem, SplitMode } from '@/types'
 import { calcSingleItemShares } from '@/utils/balanceCalculator'
 
+function round(n: number): number {
+  return Math.round(n * 100) / 100
+}
+
 
 interface CustomAmountInputProps {
   value: number
@@ -207,7 +211,7 @@ export default function SplitModePanel({ item, itemIndex, people, split, onSplit
         <div className="space-y-2">
           {isDiscount && (
             <p className="text-xs text-ink-2">
-              Discount total: ${totalPrice.toFixed(2)} — assign each person's share below.
+              Discount total: ${totalPrice.toFixed(2)} - assign each person's share below.
             </p>
           )}
           {people.map(person => {
@@ -241,9 +245,9 @@ export default function SplitModePanel({ item, itemIndex, people, split, onSplit
               : 'bg-ink/5 text-ink-2',
           ].join(' ')}>
             {isFullyAssigned
-              ? `✓ Fully assigned ($${totalPrice.toFixed(2)})`
+              ? `Done - Fully assigned ($${totalPrice.toFixed(2)})`
               : isOver
-              ? `Over by $${Math.abs(remaining).toFixed(2)} — reduce someone's amount`
+              ? `Over by $${Math.abs(remaining).toFixed(2)} - reduce someone's amount`
               : `$${remaining.toFixed(2)} remaining to assign`}
           </div>
 

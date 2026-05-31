@@ -21,6 +21,19 @@ function defaultSplits(items: ReceiptItem[]): ItemSplit[] {
   return items.map((_, idx) => ({ itemIndex: idx, mode: 'everyone', assignedTo: [] }))
 }
 
+// For Costco receipts: each savings line appears immediately after the item it discounts.
+// Auto-link by connecting each discount to the closest preceding non-discount item.
+function autoLinkCostcoDiscounts(items: ReceiptItem[], store: string): ReceiptItem[] {
+  if (!/costco/i.test(store)) return items
+  return items.map((item, idx) => {
+    if (item.type !== 'discount' || item.linkedItemIndex != null) return item
+    for (let i = idx - 1; i >= 0; i--) {
+      if (items[i].type === 'item') return { ...item, linkedItemIndex: i }
+    }
+    return item
+  })
+}
+
 interface Session {
   receipt: ScannedReceipt | null; items: ReceiptItem[]
   people: Person[]; splits: ItemSplit[]
@@ -88,7 +101,11 @@ export default function SplitTool() {
   function handleScanSuccess(data: ScannedReceipt, file: File, previewTextStr?: string) {
     uploadedFileRef.current = file
     setPreviewText(previewTextStr ?? null)
-    setReceipt(data); setItems(data.items); setPageState('review')
+    const linkedItems = autoLinkCostcoDiscounts(data.items, data.store)
+    setReceipt(data)
+    setItems(linkedItems)
+    setSplits([])
+    setPageState('review')
   }
 
   function handlePeopleConfirm(newPeople: Person[]) {
@@ -137,7 +154,10 @@ export default function SplitTool() {
         </div>
       </nav>
 
-      <div className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">
+      <div className={[
+        'mx-auto w-full flex-1 px-4 py-8 sm:px-6',
+        pageState === 'assigning' ? 'max-w-[1600px]' : 'max-w-7xl',
+      ].join(' ')}>
         {(pageState === 'upload' || pageState === 'scanning') && (
           <>
             <div className="mb-6">
@@ -151,8 +171,8 @@ export default function SplitTool() {
               </p>
               <p className="mt-1 text-center text-xs text-ink-3">
                 For Costco: open your receipt on{' '}
-                <span className="font-medium">costco.com.au → My Account → Receipts</span>
-                , then File → Save As (.html)
+                <span className="font-medium">costco.com.au &gt; My Account &gt; Receipts</span>
+                , then File &gt; Save As (.html)
               </p>
               <p className="mt-2 text-center text-sm text-ink-2">
                 Or{' '}
