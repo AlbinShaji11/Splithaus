@@ -276,7 +276,17 @@ def parse_html(file_bytes: bytes) -> ReceiptScanResponse:
                 'Make sure you saved the page with the receipt modal open and visible.'
             ),
         )
-    text = text[idx:]
+    # Skip past the marker itself so it doesn't bleed into the first item name buffer
+    text = text[idx + len(marker):]
+
+    # Also skip any leading Member/MEMBER line (header boilerplate)
+    _lines = text.split('\n')
+    _start = 0
+    for _i, _ln in enumerate(_lines):
+        if re.match(r'^\s*member\b', _ln, re.IGNORECASE):
+            _start = _i + 1
+            break
+    text = '\n'.join(_lines[_start:])
 
     items_raw = parse_receipt_html(text)
     totals = extract_costco_totals(text)
