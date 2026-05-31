@@ -5,25 +5,26 @@ Receipt parser router.
 Supported stores:
   - Woolworths (PDF/image - woolworths, woolworths.com.au)
   - Costco     (HTML     - costco, costco.com.au, costco wholesale)
+  - Kmart      (PDF      - kmart, kmart.com.au)
 
 Stubs for future stores (add parser modules and wire them in below):
   - Coles  (coles, coles.com.au, flybuys)
-  - Kmart  (kmart, kmart.com.au)
 """
 from typing import Optional
 
 from app.parsers.woolworths import parse_woolworths
 from app.parsers.costco import parse_costco
+from app.parsers.kmart import parse_kmart
 
 # Detection keywords per store (case-insensitive substring match)
 _STORE_KEYWORDS: dict[str, list[str]] = {
     'woolworths': ['woolworths', 'woolworths.com.au', 'woolies'],
     'costco': ['costco wholesale', 'costco.com.au', 'costco'],
-    'coles': ['coles', 'coles.com.au', 'flybuys'],
     'kmart': ['kmart', 'kmart.com.au'],
+    'coles': ['coles', 'coles.com.au', 'flybuys'],
 }
 
-SUPPORTED_STORES = ['Woolworths', 'Costco']
+SUPPORTED_STORES = ['Woolworths', 'Costco', 'Kmart']
 
 
 def detect_store(text: str) -> Optional[str]:
@@ -53,8 +54,10 @@ def parse_receipt(lines: list) -> list:
     if store == 'woolworths':
         return parse_woolworths(lines)
 
+    if store == 'kmart':
+        return parse_kmart(lines)
+
     # case 'coles': return parse_coles(lines)  # TODO: implement
-    # case 'kmart': return parse_kmart(lines)  # TODO: implement
 
     if store == 'costco':
         raise ValueError(
@@ -64,7 +67,7 @@ def parse_receipt(lines: list) -> list:
     if store is not None:
         raise ValueError(f"{store.title()} parsing not yet supported")
 
-    raise ValueError("Unrecognised store - please use a Woolworths or Costco receipt")
+    raise ValueError("Unrecognised store - please use a Woolworths, Kmart, or Costco receipt")
 
 
 def parse_receipt_html(text: str) -> list:

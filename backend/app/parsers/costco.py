@@ -1,4 +1,5 @@
 # coding: utf-8
+# Costco PDFs are raster-only (Print to PDF from browser). Use HTML upload instead.
 """
 Costco receipt parser.
 

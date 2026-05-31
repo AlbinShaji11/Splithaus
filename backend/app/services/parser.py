@@ -239,7 +239,11 @@ def parse_pdf(file_bytes: bytes) -> ReceiptScanResponse:
         lines = [ln for ln in text.splitlines() if ln.strip()]
         store = detect_store(lines)
         items_raw = parse_receipt(lines)
-        totals = extract_totals(lines)
+        if store == 'Kmart':
+            from app.parsers.kmart import extract_kmart_totals
+            totals = extract_kmart_totals(lines)
+        else:
+            totals = extract_totals(lines)
         return _build_response(lines, items_raw, totals, store)
     finally:
         if tmp_path and os.path.exists(tmp_path):
