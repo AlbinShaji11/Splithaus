@@ -72,6 +72,7 @@ export default function ItemSplitRow({ item, itemIndex, people, split, onSplitCh
       <div
         className={[
           'group cursor-pointer px-4 py-3 transition-all duration-150 ease-in-out',
+          'hover:-translate-y-0.5 hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)]',
           expanded ? 'bg-paper' : 'hover:bg-paper',
         ].join(' ')}
         style={{
