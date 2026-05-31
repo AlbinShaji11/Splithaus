@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react'
 import type { ItemSplit, Person, ProportionShare, ReceiptItem, SplitMode } from '@/types'
+import { calcSingleItemShares } from '@/utils/balanceCalculator'
 
-function round(n: number): number {
-  return Math.round(n * 100) / 100
-}
 
 interface CustomAmountInputProps {
   value: number
@@ -48,36 +46,6 @@ function CustomAmountInput({ value, onChange, className, placeholder }: CustomAm
   )
 }
 
-function calcShares(price: number, split: ItemSplit, people: Person[]): Record<string, number> {
-  const result: Record<string, number> = {}
-  people.forEach(p => { result[p.id] = 0 })
-
-  if (split.mode === 'everyone') {
-    const share = round(price / people.length)
-    people.forEach(p => { result[p.id] = share })
-  } else if (split.mode === 'individual') {
-    const id = split.assignedTo[0]
-    if (id) result[id] = round(price)
-  } else if (split.mode === 'subset') {
-    const n = split.assignedTo.length
-    if (n > 0) {
-      const share = round(price / n)
-      split.assignedTo.forEach(id => { result[id] = share })
-    }
-  } else if (split.mode === 'proportion' && split.proportions) {
-    const total = split.proportions.reduce((s, p) => s + p.ratio, 0)
-    if (total > 0) {
-      split.proportions.forEach(({ personId, ratio }) => {
-        result[personId] = round(price * (ratio / total))
-      })
-    }
-  } else if (split.mode === 'custom' && split.customAmounts) {
-    Object.entries(split.customAmounts).forEach(([id, amount]) => {
-      result[id] = round(amount)
-    })
-  }
-  return result
-}
 
 const MODES: { mode: SplitMode; label: string }[] = [
   { mode: 'everyone', label: 'Everyone equally' },
@@ -96,7 +64,7 @@ interface Props {
 }
 
 export default function SplitModePanel({ item, itemIndex, people, split, onSplitChange }: Props) {
-  const shares = calcShares(item.price, split, people)
+  const shares = calcSingleItemShares(item.price, split, people)
   const allIds = people.map(p => p.id)
   const isDiscount = item.price < 0
 

@@ -1,7 +1,17 @@
 import type { ItemSplit, Person, ReceiptItem, Settlement } from '@/types'
 
-function round(n: number): number {
-  return Math.round(n * 100) / 100
+// --- Cent helpers ---
+
+function toCents(dollars: number): number {
+  return Math.round(dollars * 100)
+}
+
+// Split totalCents exactly into n shares; extra pennies go to the first persons.
+function splitIntoCents(totalCents: number, n: number): number[] {
+  if (n <= 0) return []
+  const base = Math.floor(totalCents / n)
+  const extra = totalCents - base * n
+  return Array.from({ length: n }, (_, i) => base + (i < extra ? 1 : 0))
 }
 
 export function detectDiscountType(
@@ -15,42 +25,62 @@ export function detectDiscountType(
   return 'generic'
 }
 
-function calcSingleItemShares(
-  price: number,
+// Per-person shares in cents — internal arithmetic kernel.
+function calcSharesCents(
+  priceCents: number,
   split: ItemSplit | undefined,
   people: Person[],
 ): Record<string, number> {
   const result: Record<string, number> = {}
   people.forEach(p => { result[p.id] = 0 })
 
+  const absCents = Math.abs(priceCents)
+  const sign = priceCents < 0 ? -1 : 1
+
   if (!split || split.mode === 'everyone') {
-    const share = round(price / people.length)
-    people.forEach(p => { result[p.id] = share })
+    const shares = splitIntoCents(absCents, people.length)
+    people.forEach((p, i) => { result[p.id] = sign * shares[i] })
   } else if (split.mode === 'individual') {
     const id = split.assignedTo[0]
-    if (id) result[id] = round(price)
+    if (id) result[id] = priceCents
   } else if (split.mode === 'subset') {
-    const n = split.assignedTo.length
-    if (n > 0) {
-      const share = round(price / n)
-      split.assignedTo.forEach(id => { result[id] = share })
+    const ids = split.assignedTo
+    if (ids.length > 0) {
+      const shares = splitIntoCents(absCents, ids.length)
+      ids.forEach((id, i) => { result[id] = sign * shares[i] })
     }
   } else if (split.mode === 'proportion' && split.proportions) {
     const totalRatio = split.proportions.reduce((s, p) => s + p.ratio, 0)
     if (totalRatio > 0) {
-      split.proportions.forEach(({ personId, ratio }) => {
-        result[personId] = round(price * (ratio / totalRatio))
+      const exact = split.proportions.map(p => absCents * p.ratio / totalRatio)
+      const floors = exact.map(Math.floor)
+      const rem = absCents - floors.reduce((s, v) => s + v, 0)
+      split.proportions.forEach(({ personId }, i) => {
+        result[personId] = sign * (floors[i] + (i < rem ? 1 : 0))
       })
     }
   } else if (split.mode === 'custom' && split.customAmounts) {
     Object.entries(split.customAmounts).forEach(([id, amount]) => {
-      result[id] = round(amount)
+      result[id] = toCents(amount)
     })
   }
   return result
 }
 
-function calcPositiveContribs(
+// Per-person shares in dollars — used by SplitModePanel display and getItemShares.
+export function calcSingleItemShares(
+  price: number,
+  split: ItemSplit | undefined,
+  people: Person[],
+): Record<string, number> {
+  const cents = calcSharesCents(toCents(price), split, people)
+  const result: Record<string, number> = {}
+  Object.entries(cents).forEach(([id, c]) => { result[id] = c / 100 })
+  return result
+}
+
+// Positive item contributions in cents (for pro-rata discount distribution).
+function calcPositiveContribsCents(
   items: ReceiptItem[],
   splits: ItemSplit[],
   people: Person[],
@@ -61,13 +91,14 @@ function calcPositiveContribs(
 
   items.forEach((item, idx) => {
     if (item.type !== 'item') return
-    const shares = calcSingleItemShares(item.price, splitMap.get(idx), people)
-    Object.entries(shares).forEach(([id, v]) => { contribs[id] = round(contribs[id] + v) })
+    const shares = calcSharesCents(toCents(item.price), splitMap.get(idx), people)
+    Object.entries(shares).forEach(([id, c]) => { if (c > 0) contribs[id] += c })
   })
   return contribs
 }
 
-function calcWWContribs(
+// WW-brand item contributions in cents.
+function calcWWContribsCents(
   items: ReceiptItem[],
   splits: ItemSplit[],
   people: Person[],
@@ -79,30 +110,34 @@ function calcWWContribs(
   items.forEach((item, idx) => {
     if (item.type !== 'item') return
     if (!/\bww\b|woolworths/i.test(item.name)) return
-    const shares = calcSingleItemShares(item.price, splitMap.get(idx), people)
-    Object.entries(shares).forEach(([id, v]) => { contribs[id] = round(contribs[id] + v) })
+    const shares = calcSharesCents(toCents(item.price), splitMap.get(idx), people)
+    Object.entries(shares).forEach(([id, c]) => { if (c > 0) contribs[id] += c })
   })
   return contribs
 }
 
-function distributeDiscount(
-  price: number,
-  contribs: Record<string, number>,
+// Pro-rata distribution of a discount (negative cents) using cent arithmetic.
+function distributeDiscountCents(
+  discountCents: number,
+  contribsCents: Record<string, number>,
   people: Person[],
 ): Record<string, number> {
   const result: Record<string, number> = {}
   people.forEach(p => { result[p.id] = 0 })
-  const total = Object.values(contribs).reduce((s, v) => s + v, 0)
+  const absCents = Math.abs(discountCents)
+  const totalContrib = Object.values(contribsCents).reduce((s, v) => s + v, 0)
 
-  if (total <= 0) {
-    const share = round(price / people.length)
-    people.forEach(p => { result[p.id] = share })
+  if (totalContrib <= 0) {
+    const shares = splitIntoCents(absCents, people.length)
+    people.forEach((p, i) => { result[p.id] = -shares[i] })
     return result
   }
-  people.forEach(p => {
-    if ((contribs[p.id] ?? 0) > 0) {
-      result[p.id] = round(price * (contribs[p.id] / total))
-    }
+
+  const exact = people.map(p => absCents * (contribsCents[p.id] ?? 0) / totalContrib)
+  const floors = exact.map(Math.floor)
+  const rem = absCents - floors.reduce((s, v) => s + v, 0)
+  people.forEach((p, i) => {
+    result[p.id] = -(floors[i] + (i < rem ? 1 : 0))
   })
   return result
 }
@@ -116,16 +151,29 @@ export function getItemShares(
   storeName: string,
 ): Record<string, number> {
   const split = splits.find(s => s.itemIndex === itemIdx)
+
   if (item.type === 'discount' && (!split || split.mode === 'everyone')) {
-    const positiveContribs = calcPositiveContribs(allItems, splits, people)
+    // Costco: use linked item's split to distribute the discount proportionally
+    if (/costco/i.test(storeName) && item.linkedItemIndex != null) {
+      const linkedSplit = splits.find(s => s.itemIndex === item.linkedItemIndex)
+      if (linkedSplit) {
+        return calcSingleItemShares(item.price, linkedSplit, people)
+      }
+    }
+
+    const contribsCents = calcPositiveContribsCents(allItems, splits, people)
     const discType = detectDiscountType(item.name, storeName)
-    let contribs = positiveContribs
+    let contribs = contribsCents
     if (discType === 'ww_brand') {
-      const wwContribs = calcWWContribs(allItems, splits, people)
+      const wwContribs = calcWWContribsCents(allItems, splits, people)
       if (Object.values(wwContribs).some(v => v > 0)) contribs = wwContribs
     }
-    return distributeDiscount(item.price, contribs, people)
+    const cents = distributeDiscountCents(toCents(item.price), contribs, people)
+    const result: Record<string, number> = {}
+    Object.entries(cents).forEach(([id, c]) => { result[id] = c / 100 })
+    return result
   }
+
   return calcSingleItemShares(item.price, split, people)
 }
 
@@ -136,54 +184,48 @@ export function calculatePersonTotals(
   paidById: string | null,
   storeName = '',
 ): Record<string, number> {
-  const totals: Record<string, number> = {}
-  people.forEach(p => { totals[p.id] = 0 })
+  const totalsCents: Record<string, number> = {}
+  people.forEach(p => { totalsCents[p.id] = 0 })
 
   const splitMap = new Map(splits.map(s => [s.itemIndex, s]))
-  const positiveContribs = calcPositiveContribs(items, splits, people)
+  const positiveContribsCents = calcPositiveContribsCents(items, splits, people)
 
   items.forEach((item, idx) => {
     const split = splitMap.get(idx)
-    const price = item.price
+    const priceCents = toCents(item.price)
 
     if (item.type === 'discount' && (!split || split.mode === 'everyone')) {
+      // Costco: linked item discount — mirror linked item's split
+      if (/costco/i.test(storeName) && item.linkedItemIndex != null) {
+        const linkedSplit = splitMap.get(item.linkedItemIndex)
+        if (linkedSplit) {
+          const shares = calcSharesCents(priceCents, linkedSplit, people)
+          Object.entries(shares).forEach(([id, c]) => { totalsCents[id] += c })
+          return
+        }
+      }
+
       const discType = detectDiscountType(item.name, storeName)
-      let contribs = positiveContribs
+      let contribs = positiveContribsCents
       if (discType === 'ww_brand') {
-        const wwContribs = calcWWContribs(items, splits, people)
+        const wwContribs = calcWWContribsCents(items, splits, people)
         if (Object.values(wwContribs).some(v => v > 0)) contribs = wwContribs
       }
-      const shares = distributeDiscount(price, contribs, people)
-      Object.entries(shares).forEach(([id, v]) => { totals[id] = round(totals[id] + v) })
-    } else if (!split || split.mode === 'everyone') {
-      const share = round(price / people.length)
-      people.forEach(p => { totals[p.id] = round(totals[p.id] + share) })
-    } else if (split.mode === 'individual') {
-      const personId = split.assignedTo[0]
-      if (personId) totals[personId] = round(totals[personId] + price)
-    } else if (split.mode === 'subset') {
-      const n = split.assignedTo.length
-      if (n > 0) {
-        const share = round(price / n)
-        split.assignedTo.forEach(id => { totals[id] = round(totals[id] + share) })
-      }
-    } else if (split.mode === 'proportion' && split.proportions) {
-      const totalRatio = split.proportions.reduce((s, p) => s + p.ratio, 0)
-      if (totalRatio > 0) {
-        split.proportions.forEach(({ personId, ratio }) => {
-          totals[personId] = round(totals[personId] + round(price * (ratio / totalRatio)))
-        })
-      }
-    } else if (split.mode === 'custom' && split.customAmounts) {
-      Object.entries(split.customAmounts).forEach(([id, amount]) => {
-        totals[id] = round(totals[id] + amount)
-      })
+      const shares = distributeDiscountCents(priceCents, contribs, people)
+      Object.entries(shares).forEach(([id, c]) => { totalsCents[id] += c })
+    } else {
+      const shares = calcSharesCents(priceCents, split, people)
+      Object.entries(shares).forEach(([id, c]) => { totalsCents[id] += c })
     }
   })
 
+  const totals: Record<string, number> = {}
+  people.forEach(p => { totals[p.id] = totalsCents[p.id] / 100 })
+
   if (paidById) {
-    const receiptTotal = round(items.reduce((s, i) => s + i.price, 0))
-    totals[paidById] = round(totals[paidById] - receiptTotal)
+    // Use per-item cent accumulation to avoid floating-point drift in the receipt total
+    const receiptTotalCents = items.reduce((s, i) => s + toCents(i.price), 0)
+    totals[paidById] = (totalsCents[paidById] - receiptTotalCents) / 100
   }
   return totals
 }
@@ -207,10 +249,10 @@ export function calculateSettlements(
   let di = 0; let ci = 0
   while (di < debtors.length && ci < creditors.length) {
     const debtor = debtors[di]; const creditor = creditors[ci]
-    const amount = round(Math.min(debtor.remaining, creditor.remaining))
+    const amount = Math.round(Math.min(debtor.remaining, creditor.remaining) * 100) / 100
     settlements.push({ fromId: debtor.id, fromName: debtor.name, toId: creditor.id, toName: creditor.name, amount })
-    debtor.remaining = round(debtor.remaining - amount)
-    creditor.remaining = round(creditor.remaining - amount)
+    debtor.remaining = Math.round((debtor.remaining - amount) * 100) / 100
+    creditor.remaining = Math.round((creditor.remaining - amount) * 100) / 100
     if (debtor.remaining < 0.005) di++
     if (creditor.remaining < 0.005) ci++
   }
