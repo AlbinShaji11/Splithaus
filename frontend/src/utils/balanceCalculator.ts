@@ -190,40 +190,61 @@ export function calculatePersonTotals(
   const splitMap = new Map(splits.map(s => [s.itemIndex, s]))
   const positiveContribsCents = calcPositiveContribsCents(items, splits, people)
 
+  // Accumulate all "everyone equally" items (positive + generic discounts) into one
+  // batch and split the sum once — prevents per-item cent-remainder compounding
+  // (e.g. $61.00 ÷ 4 → $15.25 each, not $15.26/$15.24).
+  let everyoneBatchCents = 0
+
   items.forEach((item, idx) => {
     const split = splitMap.get(idx)
     const priceCents = toCents(item.price)
+    const isEveryone = !split || split.mode === 'everyone'
 
-    if (item.type === 'discount' && (!split || split.mode === 'everyone')) {
-      // Costco: linked item discount — mirror linked item's split
+    if (!isEveryone) {
+      // Non-"everyone" items: compute per-item as usual
+      const shares = calcSharesCents(priceCents, split, people)
+      Object.entries(shares).forEach(([id, c]) => { totalsCents[id] += c })
+      return
+    }
+
+    if (item.type === 'discount') {
+      // WW-brand discounts: pro-rata to WW item contributors (not batched)
+      if (detectDiscountType(item.name, storeName) === 'ww_brand') {
+        const wwContribs = calcWWContribsCents(items, splits, people)
+        const contribs = Object.values(wwContribs).some(v => v > 0) ? wwContribs : positiveContribsCents
+        const shares = distributeDiscountCents(priceCents, contribs, people)
+        Object.entries(shares).forEach(([id, c]) => { totalsCents[id] += c })
+        return
+      }
+
+      // Costco linked discount: if linked item is non-"everyone", use that split
       if (/costco/i.test(storeName) && item.linkedItemIndex != null) {
         const linkedSplit = splitMap.get(item.linkedItemIndex)
-        if (linkedSplit) {
+        if (linkedSplit && linkedSplit.mode !== 'everyone') {
           const shares = calcSharesCents(priceCents, linkedSplit, people)
           Object.entries(shares).forEach(([id, c]) => { totalsCents[id] += c })
           return
         }
+        // If linked item is also "everyone", fall through to batch
       }
-
-      const discType = detectDiscountType(item.name, storeName)
-      let contribs = positiveContribsCents
-      if (discType === 'ww_brand') {
-        const wwContribs = calcWWContribsCents(items, splits, people)
-        if (Object.values(wwContribs).some(v => v > 0)) contribs = wwContribs
-      }
-      const shares = distributeDiscountCents(priceCents, contribs, people)
-      Object.entries(shares).forEach(([id, c]) => { totalsCents[id] += c })
-    } else {
-      const shares = calcSharesCents(priceCents, split, people)
-      Object.entries(shares).forEach(([id, c]) => { totalsCents[id] += c })
     }
+
+    // Everything else in "everyone" mode: batch (positive items + generic discounts)
+    everyoneBatchCents += priceCents
   })
+
+  // Split the batched "everyone" total once — guarantees equal totals for equal splits
+  if (everyoneBatchCents !== 0) {
+    const absCents = Math.abs(everyoneBatchCents)
+    const sign = everyoneBatchCents < 0 ? -1 : 1
+    const batchShares = splitIntoCents(absCents, people.length)
+    people.forEach((p, i) => { totalsCents[p.id] += sign * batchShares[i] })
+  }
 
   const totals: Record<string, number> = {}
   people.forEach(p => { totals[p.id] = totalsCents[p.id] / 100 })
 
   if (paidById) {
-    // Use per-item cent accumulation to avoid floating-point drift in the receipt total
     const receiptTotalCents = items.reduce((s, i) => s + toCents(i.price), 0)
     totals[paidById] = (totalsCents[paidById] - receiptTotalCents) / 100
   }
