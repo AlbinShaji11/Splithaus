@@ -12,9 +12,11 @@ function StoreBadge({ store }: { store: string }) {
   const s = store.toLowerCase()
   const bg = s.includes('woolworths') ? '#1a7f37'
     : s.includes('costco') ? '#0062cc'
+    : s.includes('kmart') ? '#D0021B'
     : '#6b7280'
   const label = s.includes('woolworths') ? 'Woolworths'
     : s.includes('costco') ? 'Costco'
+    : s.includes('kmart') ? 'Kmart'
     : store
   return (
     <span
