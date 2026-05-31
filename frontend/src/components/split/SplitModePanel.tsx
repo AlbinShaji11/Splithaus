@@ -74,7 +74,8 @@ export default function SplitModePanel({ item, itemIndex, people, split, onSplit
 
   function setMode(mode: SplitMode) {
     const proportions: ProportionShare[] = people.map(p => ({ personId: p.id, ratio: 1 }))
-    const assignedTo = mode === 'individual' ? [allIds[0]] : allIds
+    // "Multiple" starts with nobody — user taps to include people
+    const assignedTo = mode === 'individual' ? [allIds[0]] : mode === 'subset' ? [] : allIds
     const customAmounts: Record<string, number> = mode === 'custom'
       ? Object.fromEntries(people.map(p => [p.id, 0]))
       : {}
@@ -89,7 +90,8 @@ export default function SplitModePanel({ item, itemIndex, people, split, onSplit
     const next = split.assignedTo.includes(personId)
       ? split.assignedTo.filter(id => id !== personId)
       : [...split.assignedTo, personId]
-    onSplitChange(itemIndex, { ...split, assignedTo: next.length === 0 ? [personId] : next })
+    // Allow empty selection — ItemSplitRow will block collapsing until ≥1 selected
+    onSplitChange(itemIndex, { ...split, assignedTo: next })
   }
 
   function setRatio(personId: string, ratio: number) {
@@ -173,6 +175,9 @@ export default function SplitModePanel({ item, itemIndex, people, split, onSplit
               </button>
             )
           })}
+          {split.mode === 'subset' && split.assignedTo.length === 0 && (
+            <p className="w-full text-xs text-amber-600">Select at least one person to continue.</p>
+          )}
         </div>
       )}
 

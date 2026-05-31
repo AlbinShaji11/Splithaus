@@ -57,8 +57,12 @@ export default function ItemSplitRow({ item, itemIndex, people, split, onSplitCh
     return Math.abs(totalPrice - assignedTotal) >= 0.005
   })()
 
+  const isSubsetEmpty = split.mode === 'subset' && split.assignedTo.length === 0
+
+  const isIncomplete = isCustomIncomplete || isSubsetEmpty
+
   function handleRowClick() {
-    if (expanded && isCustomIncomplete) return
+    if (expanded && isIncomplete) return
     setExpanded(e => !e)
   }
 
@@ -144,7 +148,7 @@ export default function ItemSplitRow({ item, itemIndex, people, split, onSplitCh
             'transition-all duration-150',
             expanded ? 'rotate-180' : '',
             'group-hover:translate-x-0.5',
-            isCustomIncomplete ? 'text-amber-500' : 'text-ink-3 group-hover:opacity-80',
+            isIncomplete ? 'text-amber-500' : 'text-ink-3 group-hover:opacity-80',
           ].join(' ')}
           aria-hidden="true"
         >
